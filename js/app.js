@@ -6,8 +6,9 @@ import { getPdfjs } from "./pdfloader.js";
 import { $, go, shell, fly, toast, confirmSheet, setBackground } from "./ui.js";
 import { ic, ring } from "./icons.js";
 import { planView, placeView, hotelsView, flightsView, settingsView } from "./views-trip.js";
-import * as share from "./share.js";
-import { shareCard, joinView, importView } from "./shareui.js";
+import * as live from "./live.js";
+import * as photos from "./photos.js";
+import { shareCard, importView } from "./shareui.js";
 
 const app = $("#app");
 let draft = null;
@@ -73,12 +74,14 @@ function welcomeView() {
   trips.slice().sort((a, b) => b.createdAt - a.createdAt).forEach(t => {
     const p = store.progress(t);
     const first = t.days[0]?.date, last = t.days[t.days.length - 1]?.date;
+    const photoEl = h("div", { class: "photo", style: { backgroundImage: `url("${photos.backdropFor(t)}")` } },
+      h("div", { class: "over" }, h("span", { class: "eyebrow" }, `${fmtShort(first)} \u2013 ${fmtShort(last)} \u00B7 ${t.days.length} days`), h("h3", null, t.name)));
+    if (!t.cover) photos.tripPhotos(t).then(all => { if (photoEl.isConnected && all[0]) photoEl.style.backgroundImage = `url("${all[0].url}")`; });
     list.appendChild(h("div", { class: "tripwrap" },
       h("button", { class: "trip-card", type: "button", onclick: () => go(`#/trip/${t.id}/plan`), "aria-label": "Open " + t.name },
-        h("div", { class: "photo", style: { backgroundImage: `url("${store.coverUrl(store.coverKey(t))}")` } },
-          h("div", { class: "over" }, h("span", { class: "eyebrow" }, `${fmtShort(first)} \u2013 ${fmtShort(last)} \u00B7 ${t.days.length} days`), h("h3", null, t.name))),
+        photoEl,
         h("div", { class: "foot" },
-          h("div", { class: "stat-line" }, h("span", null, ic("hotel", 14), `${t.hotels.length} hotel${t.hotels.length === 1 ? "" : "s"}`), h("span", null, ic("plane", 14), `${t.flights.length} flight${t.flights.length === 1 ? "" : "s"}`), h("span", null, ic("pin", 14), `${p.total} places`), t.viaShare ? h("span", null, ic("link", 14), "Shared") : null),
+          h("div", { class: "stat-line" }, h("span", null, ic("hotel", 14), `${t.hotels.length} hotel${t.hotels.length === 1 ? "" : "s"}`), h("span", null, ic("plane", 14), `${t.flights.length} flight${t.flights.length === 1 ? "" : "s"}`), h("span", null, ic("pin", 14), `${p.total} places`), live.isLive(t) ? h("span", null, ic("refresh", 14), "Live") : null),
           h("div", { class: "bar" }, h("i", { style: { width: p.pct + "%" } })),
           h("div", { class: "muted" }, `${p.done} of ${p.total} visited \u00B7 ${p.pct}%`))),
       h("button", { class: "trip-del", type: "button", "aria-label": "Delete " + t.name,
@@ -150,7 +153,6 @@ function parseRoute() {
   const parts = pathPart.split("/").filter(Boolean);
   if (!parts.length) return { name: "welcome", depth: 0, order: 0 };
   if (parts[0] === "t" && parts[1]) return { name: "import", depth: 1, order: 0, payload: parts.slice(1).join("/") };
-  if (parts[0] === "join") return { name: "join", depth: 1, order: 0, link: share.parseLink(q >= 0 ? raw.slice(q + 1) : "") };
   if (parts[0] === "new") return { name: "new", depth: 1, order: 0 };
   if (parts[0] === "trip" && parts[1]) {
     const id = parts[1], sec = parts[2] || "plan";
@@ -181,7 +183,7 @@ async function render(instant = false) {
   if (my !== token) return;
   let el;
   try {
-    el = ({ welcome: welcomeView, new: newTripView, join: joinView, import: importView, plan: planView, hotels: hotelsView, flights: flightsView, place: placeView, settings: settingsView }[route.name])(route);
+    el = ({ welcome: welcomeView, new: newTripView, import: importView, plan: planView, hotels: hotelsView, flights: flightsView, place: placeView, settings: settingsView }[route.name])(route);
   } catch (e) {
     console.error(e);
     el = h("div", { class: "page" }, h("div", { class: "glass card" }, h("h2", null, "Something went wrong"), h("p", { class: "muted" }, String((e && e.message) || e)), h("a", { class: "btn gold", href: "#/" }, "Back to start")));
@@ -192,7 +194,7 @@ async function render(instant = false) {
   app.innerHTML = "";
   app.appendChild(el);
   const trip = route.id ? store.getTrip(route.id) : null;
-  setBackground(trip ? store.coverUrl(store.coverKey(trip)) : "img/sky.jpg");
+  setBackground(trip ? photos.backdropFor(trip) : "img/sky.jpg");
   document.body.classList.toggle("home", route.name === "welcome");
   window.scrollTo(0, y);
   prev = route;
@@ -202,9 +204,13 @@ window.addEventListener("hashchange", () => render());
 window.addEventListener("trip-refresh", () => render(true));
 
 store.load();
-share.initSharing();
 render();
-share.pullIfViewer(true);
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") share.pullIfViewer(); });
+live.start();
+window.addEventListener("photos-ready", e => {
+  const route = parseRoute();
+  if (route.name === "plan" || route.name === "welcome" || !route.id || (e.detail && e.detail.id !== route.id)) return;
+  const trip = store.getTrip(route.id);
+  if (trip) setBackground(photos.backdropFor(trip));
+});
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});

@@ -2,7 +2,7 @@
 import { uid, randomTopic, cityToTz, shortStopName, normName } from "./util.js";
 
 const KEY = "trippilot.v1";
-const DEFAULT_SETTINGS = { mapsKey: "", ghToken: "", ghOwner: "", ghRepo: "", geo: {}, wiki: {}, profile: null };
+const DEFAULT_SETTINGS = { mapsKey: "", ghToken: "", ghOwner: "", ghRepo: "", geo: {}, wiki: {}, photos: {} };
 let state = { trips: [], settings: Object.assign({}, DEFAULT_SETTINGS) };
 
 export function load() {
@@ -34,7 +34,7 @@ export function removeTrip(id) { state.trips = state.trips.filter(t => t.id !== 
 
 function makeStop(s) {
   return { id: uid("s"), name: s.name, area: s.area || "", query: s.query || s.name, transit: s.transit || "", activity: s.activity || "",
-    baby: s.baby || "", eats: s.eats || "", city: s.city || "", label: s.label || "", visited: false, visitedAt: null, notes: "", searchTerm: "" };
+    baby: s.baby || "", eats: s.eats || "", city: s.city || "", label: s.label || "", visited: false, visitedAt: null, vts: 0, notes: "", searchTerm: "" };
 }
 export function buildDays(stops, oldDays) {
   const byDate = new Map();
@@ -45,7 +45,7 @@ export function buildDays(stops, oldDays) {
   return Array.from(byDate.keys()).sort().map(date => {
     const list = byDate.get(date).map(s => {
       const n = makeStop(s), o = prev.get(normName(s.name));
-      if (o) { n.visited = o.visited; n.visitedAt = o.visitedAt; n.notes = o.notes || ""; n.searchTerm = o.searchTerm || ""; }
+      if (o) { n.visited = o.visited; n.visitedAt = o.visitedAt; n.vts = o.vts || 0; n.notes = o.notes || ""; n.searchTerm = o.searchTerm || ""; }
       return n;
     });
     const city = list.find(s => s.city)?.city || "";
@@ -60,7 +60,7 @@ export function buildTrip({ name, year, stops, hotels, flights, sources }) {
     flights: (flights || []).map(x => Object.assign({ id: uid("f") }, x)),
     sources: sources || [],
     settings: { notifyTime: "07:30", topic: randomTopic(), includeNames: false, tz: "auto", scheduled: {} },
-    cover: ""
+    cover: "", cities: []
   };
 }
 

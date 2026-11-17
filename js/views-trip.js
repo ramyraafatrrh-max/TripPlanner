@@ -7,7 +7,10 @@ import { webInfo, stopLinks, searchTermFor } from "./places.js";
 import { shell, toast, openSheet, confirmSheet, roundBtn, go } from "./ui.js";
 import { ic, ring } from "./icons.js";
 import { docsSheet, uploadButton } from "./docs.js";
-import { shareCard, tripLinkSheet } from "./shareui.js";
+import { tripLinkSheet, liveControls, connectionTest } from "./shareui.js";
+import * as live from "./live.js";
+import * as photos from "./photos.js";
+import { coverSection } from "./banner.js";
 import { COMMON_TZ } from "./util.js";
 
 const planUI = {}; // per trip: {dayId, rearrange, sel:Set, map, fromHotel}
@@ -47,6 +50,7 @@ export function planView(route) {
   const toolbarHost = h("div");
   view.appendChild(toolbarHost);
 
+  if (live.isLive(trip)) live.sync(trip);
   const todayDay = trip.days.find(isToday);
   if (todayDay) notify.localMorningNotice(trip, todayDay, trip.days.indexOf(todayDay) + 1);
 
@@ -58,17 +62,18 @@ export function planView(route) {
     if (!trip.days.length) { body.appendChild(h("div", { class: "glass card empty" }, "This trip has no days yet.")); return; }
     const p = store.progress(trip);
     const first = trip.days[0].date, last = trip.days[trip.days.length - 1].date;
+    const day = trip.days.find(d => d.id === ui.dayId);
 
     /* cover */
-    body.appendChild(h("section", { class: "cover" },
-      h("div", { class: "photo", style: { backgroundImage: `url("${store.coverUrl(store.coverKey(trip))}")` } }),
+    body.appendChild(coverSection(trip, day,
       h("div", { class: "in" },
         h("span", { class: "eyebrow" }, `${fmtShort(first)} \u2013 ${fmtShort(last)} \u00B7 ${trip.days.length} days`),
         h("h1", null, trip.name),
         h("div", { class: "row between", style: { marginTop: "10px" } },
           h("div", { class: "row", style: { gap: "8px" } },
             h("a", { class: "pill " + (trip.hotels.length ? "" : "warn"), href: `#/trip/${trip.id}/hotels`, onclick: e => { e.preventDefault(); go(`#/trip/${trip.id}/hotels`, { replace: true }); } }, ic("hotel", 14), `${trip.hotels.length} hotel${trip.hotels.length === 1 ? "" : "s"}`),
-            h("a", { class: "pill " + (trip.flights.length ? "" : "warn"), href: `#/trip/${trip.id}/flights`, onclick: e => { e.preventDefault(); go(`#/trip/${trip.id}/flights`, { replace: true }); } }, ic("plane", 14), `${trip.flights.length} flight${trip.flights.length === 1 ? "" : "s"}`)),
+            h("a", { class: "pill " + (trip.flights.length ? "" : "warn"), href: `#/trip/${trip.id}/flights`, onclick: e => { e.preventDefault(); go(`#/trip/${trip.id}/flights`, { replace: true }); } }, ic("plane", 14), `${trip.flights.length} flight${trip.flights.length === 1 ? "" : "s"}`),
+            live.isLive(trip) ? h("a", { class: "pill green", href: `#/trip/${trip.id}/settings`, title: "Live progress is on" }, ic("refresh", 13), "Live") : null),
           ring(p.pct, 58)))));
 
     /* missing documents nudge */
@@ -89,7 +94,6 @@ export function planView(route) {
     body.appendChild(tiles);
     setTimeout(() => tiles.querySelector(".on")?.scrollIntoView({ inline: "center", block: "nearest" }), 0);
 
-    const day = trip.days.find(d => d.id === ui.dayId);
     const idx = trip.days.indexOf(day);
     const dp = store.dayProgress(day);
     const cities = store.dayCities(day);
@@ -166,7 +170,7 @@ export function planView(route) {
     if (!ui.rearrange) {
       body.appendChild(h("button", { class: "tick", type: "button", "aria-pressed": s.visited, "aria-label": (s.visited ? "Visited: " : "Mark visited: ") + s.name,
         onclick: () => {
-          s.visited = !s.visited; s.visitedAt = s.visited ? Date.now() : null; persist();
+          s.visited = !s.visited; s.visitedAt = s.visited ? Date.now() : null; s.vts = Date.now(); persist(); live.touch(trip);
           if (s.visited && navigator.vibrate) { try { navigator.vibrate(25); } catch (e) { /* ignore */ } }
           const dp = store.dayProgress(day); if (s.visited && dp.total && dp.done === dp.total) toast("Day complete. Well done!");
           draw();
@@ -265,7 +269,7 @@ export function placeView(route) {
 
   const tickBtn = h("button", { class: "btn small " + (stop.visited ? "green" : "glass"), type: "button", "aria-pressed": stop.visited });
   const paintTick = () => { tickBtn.className = "btn small " + (stop.visited ? "green" : "glass"); tickBtn.setAttribute("aria-pressed", stop.visited); tickBtn.innerHTML = ""; tickBtn.appendChild(ic("check", 16, 2.4)); tickBtn.appendChild(document.createTextNode(stop.visited ? "Visited" : "Mark as visited")); };
-  tickBtn.addEventListener("click", () => { stop.visited = !stop.visited; stop.visitedAt = stop.visited ? Date.now() : null; store.save(); paintTick(); toast(stop.visited ? "Marked as visited" : "Marked as not visited"); });
+  tickBtn.addEventListener("click", () => { stop.visited = !stop.visited; stop.visitedAt = stop.visited ? Date.now() : null; stop.vts = Date.now(); store.save(); live.touch(trip); paintTick(); toast(stop.visited ? "Marked as visited" : "Marked as not visited"); });
   paintTick();
 
   body.appendChild(h("div", { class: "glass card" },
@@ -445,13 +449,44 @@ export function settingsView(route) {
     h("div", { class: "row", style: { gap: "8px" } }, h("button", { class: "btn small gold", type: "button", onclick: () => tripLinkSheet(trip) }, ic("link", 15), "Share this trip"), h("button", { class: "btn small glass", type: "button", onclick: () => docsSheet(trip) }, ic("filePlus", 15), "Add or update documents"))));
 
   /* cover picture */
+  const autoThumb = (photos.cachedPhotos(trip)[0] || {}).url || store.coverUrl("sky");
   const picker = h("div", { class: "coverpick", role: "radiogroup", "aria-label": "Cover picture" });
-  store.COVERS.forEach(c => picker.appendChild(h("button", { type: "button", role: "radio", "aria-checked": store.coverKey(trip) === c.id, "aria-label": c.label, class: store.coverKey(trip) === c.id ? "on" : "", style: { backgroundImage: `url("${store.coverUrl(c.id)}")` },
-    onclick: () => { trip.cover = c.id; store.save(); window.dispatchEvent(new CustomEvent("trip-refresh")); } }, h("span", null, c.label))));
-  body.appendChild(h("div", { class: "glass card" }, h("span", { class: "eyebrow" }, "Look"), h("h3", { style: { marginTop: "4px" } }, "Cover picture"), picker));
+  const pick = (id, label, img) => picker.appendChild(h("button", { type: "button", role: "radio", "aria-checked": (trip.cover || "") === id, "aria-label": label, class: (trip.cover || "") === id ? "on" : "", style: { backgroundImage: `url("${img}")` },
+    onclick: () => { trip.cover = id; store.save(); window.dispatchEvent(new CustomEvent("trip-refresh")); } }, h("span", null, label)));
+  pick("", "Photos of my cities", autoThumb);
+  store.COVERS.forEach(c => pick(c.id, c.label, store.coverUrl(c.id)));
+  const cityBox = h("div");
+  function drawCities() {
+    cityBox.innerHTML = "";
+    const list = photos.cityList(trip);
+    const chips = h("div", { class: "chipset" });
+    list.forEach(name => {
+      const c = photos.cachedCity(name);
+      chips.appendChild(h("span", { class: "tag" + (c ? " ok" : c === null ? " none" : "") }, c ? ic("check", 12, 2.6) : null, name, h("button", { type: "button", "aria-label": "Remove " + name, onclick: () => { trip.cities = photos.cityList(trip).filter(x => x !== name); store.save(); drawCities(); lookup(); } }, ic("x", 12, 2.4))));
+    });
+    if (!list.length) chips.appendChild(h("span", { class: "muted" }, "No cities yet. Add one below."));
+    cityBox.appendChild(chips);
+    const add = h("input", { type: "text", placeholder: "Add a city, e.g. Lisbon", "aria-label": "Add a city" });
+    const doAdd = () => { const v = add.value.trim(); if (!v) return; const cur = photos.cityList(trip); if (!cur.some(x => x.toLowerCase() === v.toLowerCase())) { trip.cities = [...cur, v].slice(0, 8); store.save(); } add.value = ""; drawCities(); lookup(); };
+    add.addEventListener("keydown", e => { if (e.key === "Enter") doAdd(); });
+    cityBox.appendChild(h("div", { class: "row", style: { flexWrap: "nowrap", gap: "8px", marginTop: "10px" } }, h("div", { class: "grow" }, add), h("button", { class: "btn small gold", type: "button", onclick: doAdd }, ic("plus", 15), "Add")));
+    cityBox.appendChild(h("div", { class: "row", style: { gap: "8px", marginTop: "10px" } },
+      h("button", { class: "btn small glass", type: "button", onclick: () => { trip.cities = []; store.save(); drawCities(); lookup(true); } }, "Detect from my itinerary"),
+      h("button", { class: "btn small glass", type: "button", onclick: () => { lookup(true); toast("Looking for new photos\u2026"); } }, ic("refresh", 14), "Refresh photos")));
+    const credits = photos.cachedPhotos(trip);
+    if (credits.length) cityBox.appendChild(h("p", { class: "muted", style: { marginTop: "10px" } }, "Photos: ", credits.map((p, i) => [i ? ", " : "", h("a", { href: p.page || p.article, target: "_blank", rel: "noopener" }, p.city)]), ". Wikimedia Commons and Wikipedia, free licences. Tap a city for the author."));
+  }
+  function lookup(force) { photos.tripPhotos(trip, !!force).then(() => { if (cityBox.isConnected) drawCities(); }); }
+  drawCities(); lookup(false);
+  body.appendChild(h("div", { class: "glass card" }, h("span", { class: "eyebrow" }, "Look"), h("h3", { style: { marginTop: "4px" } }, "Banner pictures"),
+    h("p", { class: "muted" }, "By default the banner shows photos of the cities in this trip. Or pick one fixed picture."), picker,
+    h("div", { class: "eyebrow", style: { margin: "16px 0 6px" } }, "Cities for the photos"), cityBox));
 
-  /* sharing */
-  body.appendChild(shareCard());
+  /* sharing and live progress */
+  const liveBox = liveControls(trip);
+  body.appendChild(h("div", { class: "glass card" }, h("span", { class: "eyebrow" }, "Share"), h("h3", { style: { marginTop: "4px" } }, "Send this trip to another phone"),
+    h("p", { class: "muted" }, "A link carries the whole plan. Turn on live progress and everyone with the link sees each other's ticks."),
+    liveBox, h("div", { class: "row", style: { marginTop: "12px" } }, h("button", { class: "btn small gold", type: "button", onclick: () => tripLinkSheet(trip) }, ic("link", 15), "Get the link"))));
 
   /* time zone for the alerts */
   const tzSel = h("select", { "aria-label": "Alert time zone" }, h("option", { value: "auto" }, "Follow the city in my itinerary"), COMMON_TZ.map(z => h("option", { value: z }, z.replace("_", " "))));
@@ -506,7 +541,7 @@ export function settingsView(route) {
   body.appendChild(h("div", { class: "glass card" }, h("span", { class: "eyebrow" }, "Optional"), h("h3", { style: { marginTop: "4px" } }, "Google Maps pins"),
     h("p", { class: "muted" }, "Without a key you still get route links and an embedded preview. With your own key (Maps JavaScript API, Geocoding API and Maps Embed API enabled, restricted to your site address) the day map shows numbered pins."), key));
 
-  body.appendChild(h("div", { class: "glass card" }, h("h3", null, "Danger zone"), trip.viaShare ? h("p", { class: "muted" }, "This trip comes from a shared profile. If you remove it here it comes back the next time the owner updates the plan. Use Disconnect in Share and sync to stop that.") : null,
+  body.appendChild(h("div", { class: "glass card" }, h("h3", null, "Danger zone"),
     h("button", { class: "btn danger", type: "button", onclick: () => confirmSheet("Delete this trip?", "Your progress and notes for \"" + trip.name + "\" will be removed from this device.", "Delete trip", async () => {
       try { await notify.removeFromGithub(trip); } catch (e) { /* ignore */ }
       store.removeTrip(trip.id); go("#/", { replace: true }); toast("Trip deleted");

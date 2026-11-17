@@ -149,8 +149,15 @@ textarea { min-height: 88px; resize: vertical; }
 
 /* ---------- plan: cover, day tiles, timeline ---------- */
 .cover { position: relative; overflow: hidden; border-radius: 28px; margin: 4px 0 14px; border: 1px solid var(--line); box-shadow: var(--shadow); }
-.cover .photo { position: absolute; inset: 0; background-size: cover; background-position: center; }
-.cover .photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7, 11, 20, .25) 0%, rgba(7, 11, 20, .92) 100%); }
+.cover .layers { position: absolute; inset: 0; }
+.cover .layers::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7, 11, 20, .35) 0%, rgba(7, 11, 20, .1) 38%, rgba(7, 11, 20, .92) 100%); z-index: 1; }
+.cover .photo { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0; transition: opacity 1.4s ease; transform: scale(1.04); }
+.cover .photo.on { opacity: 1; animation: kenburns 24s ease-in-out infinite alternate; }
+.citychips { position: absolute; left: 14px; right: 14px; top: 14px; z-index: 3; display: flex; flex-wrap: wrap; gap: 6px; }
+.citychip { border: 1px solid rgba(255, 255, 255, .28); background: rgba(7, 11, 20, .42); backdrop-filter: blur(8px); color: #fff; border-radius: 999px; padding: 4px 11px; font-size: .74rem; font-weight: 600; }
+.citychip.on { background: linear-gradient(135deg, #f3dfab, #d9b36c); color: #231705; border-color: transparent; }
+.credit { position: absolute; right: 14px; bottom: 6px; z-index: 3; font-size: .56rem; color: rgba(255, 255, 255, .62); text-decoration: none; max-width: 70%; text-align: right; line-height: 1.2; }
+.credit[hidden] { display: none; }
 .cover .in { position: relative; z-index: 2; padding: 90px 18px 18px; }
 .cover h1 { margin: 4px 0 4px; font-family: var(--serif); font-size: 1.7rem; line-height: 1.12; font-weight: 600; text-shadow: 0 2px 14px rgba(0, 0, 0, .6); }
 .cover .row { margin-top: 12px; }
@@ -278,3 +285,10 @@ input[type=checkbox] { accent-color: var(--gold); width: 20px; height: 20px; mar
 .coverpick button span { position: relative; z-index: 1; font-size: .64rem; font-weight: 600; letter-spacing: .04em; padding: 0 8px 6px; text-align: left; line-height: 1.2; }
 .coverpick button.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(217, 179, 108, .35); }
 .coverpick button.on::after { content: ""; position: absolute; right: 7px; top: 7px; width: 16px; height: 16px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 2px rgba(7, 11, 20, .6); }
+
+.chipset { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 12px; border-radius: 999px; font-size: .84rem; font-weight: 600; background: var(--glass2); border: 1px solid var(--line); }
+.tag.ok { border-color: rgba(95, 208, 163, .5); color: var(--emerald); }
+.tag.none { border-color: rgba(255, 207, 138, .4); color: #ffcf8a; }
+.tag button { border: 0; background: rgba(255, 255, 255, .1); color: inherit; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; padding: 0; }
+.tag.ok .ico:first-child { margin-right: -2px; }

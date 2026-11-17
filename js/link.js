@@ -40,7 +40,8 @@ export function slimTrip(trip, level = "full", opts = {}) {
   const lv = LEVELS.find(l => l.id === level) || LEVELS[0];
   const text = v => (lv.max === 0 ? v || "" : lv.max < 0 ? "" : cut(v, lv.max));
   const out = {
-    id: trip.id, name: trip.name, year: trip.year, cover: trip.cover || "",
+    id: trip.id, name: trip.name, year: trip.year, cover: trip.cover || "", cities: Array.isArray(trip.cities) ? trip.cities.slice(0, 8) : [],
+    sync: trip.live && trip.live.r && trip.live.k ? { b: trip.live.b, r: trip.live.r, k: trip.live.k } : undefined,
     days: trip.days.map(d => ({
       id: d.id, date: d.date, city: d.city || "", tz: d.tz || "",
       stops: d.stops.map(s => ({ id: s.id, name: s.name, area: s.area || "", query: s.query || s.name, city: s.city || "", label: s.label || "",
@@ -97,13 +98,15 @@ function normalize(t) {
     id: clean(d.id, 40) || uid("d"), date: /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : "", city: clean(d.city, 80), tz: clean(d.tz, 60),
     stops: (Array.isArray(d.stops) ? d.stops : []).slice(0, 200).map(s => ({
       id: clean(s.id, 40) || uid("s"), name: clean(s.name, 200), area: clean(s.area, 200), query: clean(s.query, 300) || clean(s.name, 200), city: clean(s.city, 80), label: clean(s.label, 30),
-      transit: clean(s.transit), activity: clean(s.activity), baby: clean(s.baby), eats: clean(s.eats), visited: false, visitedAt: null, notes: "", searchTerm: ""
+      transit: clean(s.transit), activity: clean(s.activity), baby: clean(s.baby), eats: clean(s.eats), visited: false, visitedAt: null, vts: 0, notes: "", searchTerm: ""
     }))
   })).filter(d => d.date);
   if (!days.length) throw new LinkError("That link does not contain any days.");
   const pick = (arr, f) => (Array.isArray(arr) ? arr.slice(0, 40).map(f) : []);
   return {
     id: clean(t.id, 40) || uid("trip"), name: clean(t.name, 120) || "Shared trip", year: +t.year || new Date().getFullYear(), createdAt: Date.now(), cover: clean(t.cover, 20), days,
+    cities: Array.isArray(t.cities) ? t.cities.slice(0, 8).map(c => clean(c, 40)).filter(Boolean) : [],
+    live: validSync(t.sync),
     hotels: pick(t.hotels, x => ({ id: clean(x.id, 40) || uid("h"), name: clean(x.name, 160), address: clean(x.address, 300), checkIn: clean(x.checkIn, 10), checkOut: clean(x.checkOut, 10), phone: clean(x.phone, 40), confirmation: clean(x.confirmation, 60), notes: clean(x.notes, 300), source: "" })),
     flights: pick(t.flights, x => ({ id: clean(x.id, 40) || uid("f"), number: clean(x.number, 20), date: clean(x.date, 10), from: clean(x.from, 8), to: clean(x.to, 8), depart: clean(x.depart, 8), arrive: clean(x.arrive, 8), booking: clean(x.booking, 20), notes: clean(x.notes, 300), source: "" })),
     sources: [],
@@ -111,12 +114,20 @@ function normalize(t) {
   };
 }
 
+function validSync(x) {
+  if (!x || typeof x !== "object") return undefined;
+  const b = x.b === "ep" ? "ep" : "js";
+  const r = clean(x.r, 120), k = clean(x.k, 64);
+  if (!/^[\w\-\/.]{6,120}$/.test(r) || !/^[\w-]{20,64}$/.test(k)) return undefined;
+  return { b, r, k, since: Date.now(), lastSync: 0 };
+}
+
 /* what would happen if this phone added the trip */
 export function preview(data) {
   const t = data.trip;
   const mine = store.getTrip(t.id);
   const stops = t.days.reduce((n, d) => n + (d.stops ? d.stops.length : 0), 0);
-  return { exists: !!mine, mineName: mine ? mine.name : "", days: t.days.length, stops, hotels: (t.hotels || []).length, flights: (t.flights || []).length, level: data.level };
+  return { exists: !!mine, mineName: mine ? mine.name : "", live: !!(t.sync && t.sync.r), days: t.days.length, stops, hotels: (t.hotels || []).length, flights: (t.flights || []).length, level: data.level };
 }
 
 /* add the trip, or update the copy this phone already has (ticks and notes stay) */
@@ -131,13 +142,14 @@ export function importTrip(data) {
   }
   const keep = new Map();
   mine.days.forEach(d => d.stops.forEach(s => keep.set(s.id, s)));
-  incoming.days.forEach(d => d.stops.forEach(s => { const o = keep.get(s.id); if (o) { s.visited = o.visited; s.visitedAt = o.visitedAt; s.notes = o.notes || ""; s.searchTerm = o.searchTerm || ""; } }));
-  const mineSettings = mine.settings, createdAt = mine.createdAt, cover = mine.cover;
+  incoming.days.forEach(d => d.stops.forEach(s => { const o = keep.get(s.id); if (o) { s.visited = o.visited; s.visitedAt = o.visitedAt; s.vts = o.vts || 0; s.notes = o.notes || ""; s.searchTerm = o.searchTerm || ""; } }));
+  const mineSettings = mine.settings, createdAt = mine.createdAt, cover = mine.cover, mineLive = mine.live;
   Object.keys(mine).forEach(k => delete mine[k]);
   Object.assign(mine, incoming);
   mine.settings = mineSettings || incoming.settings;
   mine.createdAt = createdAt;
   if (cover && !incoming.cover) mine.cover = cover;
+  if (!incoming.live && mineLive) mine.live = mineLive;
   store.applyTz(mine);
   store.save();
   return { trip: mine, updated: true };

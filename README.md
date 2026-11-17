@@ -8,6 +8,8 @@ A phone-friendly web app that turns your travel PDFs into a living trip.
 - **Add documents any time**: the file-plus button (top right of every trip screen), the banner on the Plan tab, and the Upload PDF buttons on the Hotels and Flights tabs let you add hotel or flight PDFs you forgot, or replace the itinerary. When you replace the itinerary your Visited ticks and notes are kept where a place has the same name.
 - **Plan tab**: pick a day, tick **Visited** (progress rings and bars update), open the **day route in Google Maps**, open a **place page** with your PDF's notes, Wikipedia/Wikivoyage summaries and one-tap links to TripAdvisor and other travel sites.
 - **Rearrange**: select stops from any day, move them to another day or position, bring stops in from earlier or later days, move up/down, add or delete stops.
+- **Photos of your cities** on every trip banner, found automatically (Wikipedia / Wikimedia Commons), with credits.
+- **Share a trip with a link** and optionally **live progress**: everyone with the link sees each other's ticks. No account, no GitHub for your users.
 - **Morning alerts** on your phone with a link to that day's plan.
 
 Everything is stored in your phone's browser (localStorage). There is no server and no account.
@@ -38,8 +40,12 @@ Everything is stored in your phone's browser (localStorage). There is no server 
 - Other PDFs are split by date headings as a fallback. Check the days after creating the trip.
 - Scanned images or photos cannot be read (there is no OCR). Use text PDFs, or add hotels and flights by hand.
 
-### Pictures
-The app uses general travel scenes (a flight above the clouds, a lagoon, an alpine lake, an old harbour, desert dunes, a starry camp). Each trip gets one automatically and you can change it in **Trip settings > Cover picture**. To use your own photos, replace the files in `img/` (keep the same names, about 1000 px wide).
+### Banner pictures
+- **Automatic city photos (default).** The app reads the cities from your itinerary (for example the section headings *Tokyo*, *Hong Kong*), finds a photo of each on Wikipedia or Wikimedia Commons, and shows them as a slideshow in the trip banner with a chip per city. The photo of the city you are in that day comes first, and the same photo is used as the background. If Wikipedia's lead image is a flag or a map, the app skips it and looks for a skyline photo on Commons.
+- **Fix the cities.** In **Trip settings > Banner pictures** you can remove a city, add one (type *Lisbon* and press Enter) or tap *Detect from my itinerary*. A green tick means a photo was found; an amber chip means none was (the banner then uses a general picture).
+- **Pick a fixed picture instead** from six general travel scenes in the same card.
+- **Credits.** Each photo shows its author and licence in a small line on the banner; tap it for the full file page. Photos are free-licence images from Wikimedia (mostly CC BY-SA or CC BY), loaded straight from Wikimedia and remembered on the phone.
+- Your own picture files live in `img/` (the six general scenes). Replace them (about 1000 px wide, same names) to change the fallback pictures.
 
 ### Google Maps
 - Works with **no key**: route links, an embedded preview and place maps.
@@ -61,11 +67,25 @@ The whole plan is packed into the link itself (the part after the `#`, which bro
 - **A link is a copy from that moment.** If you change the plan, copy a new link and open it on the other phone: it updates the same trip there and keeps that phone's ticks and notes.
 - Anyone who has the link can read the plan, so send it only to people you trust.
 
-### Optional: live sync (needs a GitHub token)
-If you want every trip to appear on your other phone automatically and stay up to date without sending links again, use **Advanced: live sync** on the welcome page. It stores an encrypted copy in your GitHub repository, so it needs a token (**Settings > Developer settings > Fine-grained tokens**, only your repository, **Contents: Read and write**). Tap **Set up live sync**, paste the token, username and repository, and open the link it makes on the other phone.
-- The other phone refreshes each time you open the app. Changes on the first phone sync by themselves a few seconds later.
-- Each phone keeps its own Visited ticks and notes. Only the phone that created the link can change what is shared.
-- Your trips are encrypted (AES-256) before they are stored; the key is only in the link. **Stop live sync** deletes the stored copy.
+### Live progress: everyone sees each other's ticks (no GitHub, no token for your users)
+1. Open the trip, tap the link button, and tick **Share progress live**. The app creates a private room for that trip by itself (a random ID, no sign-up) and stores your ticks there, encrypted.
+2. Send the link. Everyone who opens it and taps *Add to this phone* joins the same room.
+3. From then on, a tick or un-tick on any phone appears on the others within seconds (while the app is open), and ticks made offline are shared when the phone is back online. Each place keeps its newest change.
+
+Notes:
+- **Only ticks are shared.** Notes, alert settings and the plan itself are not. If someone changes the plan, send a fresh link.
+- **Anyone with the link can tick places**, and can read the progress. Send it only to people you trust.
+- **Privacy:** the progress is encrypted (AES-256) before it leaves the phone; the key exists only inside the link, so the storage service sees an unreadable blob.
+- Use **Test connection** in the share sheet to check, step by step, that the sync service works from your phone.
+
+**Where the rooms live.** By default the app uses the free public service **jsonstorage.net**, which needs no account. It is a third-party service: it can change its limits or disappear, and I could not test it from where I built this, so run *Test connection* on a real phone first. If it ever stops working, ticks stay safe on each phone; only the live sharing stops.
+
+**Recommended for a real app: your own tiny sync server (free, 5 minutes, once).** Your users still need no account; only you, the app owner, set it up:
+1. In your Cloudflare account (free): **Workers & Pages > KV > Create a namespace** called `trip-rooms`.
+2. **Workers & Pages > Create > Worker**, paste the contents of `worker/worker.js`, deploy.
+3. In the Worker: **Settings > Bindings > Add > KV namespace**, variable name `ROOMS`, namespace `trip-rooms`.
+4. Copy the Worker address (`https://something.workers.dev`) into `js/config.js` as `endpoint`, re-upload `config.js`.
+New trips then use your server automatically. Cloudflare's free KV plan has daily limits (about 1,000 writes a day at the time of writing; check their current limits). That is plenty for a few people ticking places, but a large user base needs a paid plan or a different store. KV can also take up to about a minute to show a change to a phone in a very different location.
 
 ---
 
@@ -99,7 +119,7 @@ ntfy can hold a message for up to 3 days. Open the app every few days and tap **
 
 ## 5. Updating an app you already uploaded
 
-Replace everything **except** the four dot-files (`.github/workflows/daily-alerts.yml`, `.nojekyll`, `data/alerts/.gitkeep`, `data/state/.gitkeep`), which did not change. Add the new files `js/share.js`, `js/shareui.js`, `js/link.js` and the new `img/` pictures, and delete the old `img/fuji.jpg`, `img/tokyo.jpg`, `img/kyoto.jpg`, `img/hk.jpg`. Trips already on a phone are kept.
+The old GitHub-based live sync is gone (live progress replaces it). Replace everything **except** the four dot-files (`.github/workflows/daily-alerts.yml`, `.nojekyll`, `data/alerts/.gitkeep`, `data/state/.gitkeep`), which did not change. Add the new files `js/live.js`, `js/backend.js`, `js/config.js`, `js/secure.js`, `js/photos.js`, `js/banner.js`, `js/link.js`, `js/shareui.js` and the `worker/` folder (optional), and delete the old `img/fuji.jpg`, `img/tokyo.jpg`, `img/kyoto.jpg`, `img/hk.jpg`. Trips already on a phone are kept.
 
 ---
 
@@ -120,11 +140,18 @@ js/places.js             Wikipedia / Wikivoyage lookups and travel-site links
 js/maps.js               Google Maps links, embeds and optional pin map
 js/notify.js             ntfy alerts, GitHub sync, calendar file
 js/link.js               trip-in-a-link sharing (no server, no token)
-js/share.js              optional live sync: encrypted copy in your GitHub repository
+js/live.js               live progress: merge ticks between phones
+js/backend.js            where the encrypted progress is stored (free public store or your Worker)
+js/config.js             the one file you edit to point at your own sync server
+js/secure.js             encryption helpers
+js/photos.js             city photos from Wikipedia / Wikimedia Commons
+js/banner.js             the photo slideshow banner
+js/share.js              save / import a trip as a file
+worker/worker.js         optional sync server for Cloudflare Workers
 js/shareui.js            share card, setup sheet and the join page
 js/util.js               small helpers, time zones
 lib/                     PDF.js (Apache-2.0) so the app works offline
-img/                     six general travel pictures used as backdrops and covers
+img/                     six general travel pictures (fallback covers)
 sw.js, manifest.webmanifest, icons/    install on the home screen, offline use
 scripts/send-alerts.mjs  the script the GitHub Action runs
 .github/workflows/daily-alerts.yml   the daily schedule
@@ -134,5 +161,7 @@ data/alerts, data/state  where alert files and "already sent" records live
 ## Limits worth knowing
 - **TripAdvisor** (and most travel sites) do not let a web page read their content, and their official data needs a paid key and a server. The place page therefore pulls summaries from Wikipedia and Wikivoyage and gives one-tap links to TripAdvisor, Google reviews and others.
 - Without a share link, trips live in one browser on one phone. Clearing the browser's data deletes them.
+- **Not tested against the real services.** I built and tested live progress and the city photos against local stand-ins that follow the services' documented behaviour (jsonstorage.net, Wikipedia, Wikimedia Commons, Cloudflare Workers). Photo caching by the service worker and the real services themselves still need a check on a real phone: use *Test connection*, and open a trip to see whether the city photos appear.
+- City photos need an internet connection the first time; after that the images are remembered on the phone.
 - The map preview without a key uses Google's public embed address, which Google can change; the "Open in Google Maps" buttons always work.
 - Hotel and flight details read from PDFs depend on how each PDF is laid out. Always check them and tap Edit.
