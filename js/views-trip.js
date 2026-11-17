@@ -7,7 +7,7 @@ import { webInfo, stopLinks, searchTermFor } from "./places.js";
 import { shell, toast, openSheet, confirmSheet, roundBtn, go } from "./ui.js";
 import { ic, ring } from "./icons.js";
 import { docsSheet, uploadButton } from "./docs.js";
-import { shareCard } from "./shareui.js";
+import { shareCard, tripLinkSheet } from "./shareui.js";
 import { COMMON_TZ } from "./util.js";
 
 const planUI = {}; // per trip: {dayId, rearrange, sel:Set, map, fromHotel}
@@ -26,7 +26,7 @@ function tripShell(trip, tab, body) {
   const p = store.progress(trip);
   return shell({
     eyebrow: "Trip Pilot", title: trip.name, sub: `${p.done} of ${p.total} places visited`, back: "#/",
-    actions: [roundBtn("filePlus", "Add or update documents", () => docsSheet(trip)), roundBtn("sliders", "Trip settings", null, `#/trip/${trip.id}/settings`)],
+    actions: [roundBtn("link", "Share this trip", () => tripLinkSheet(trip)), roundBtn("filePlus", "Add or update documents", () => docsSheet(trip)), roundBtn("sliders", "Trip settings", null, `#/trip/${trip.id}/settings`)],
     tripId: trip.id, tab, body
   });
 }
@@ -442,7 +442,7 @@ export function settingsView(route) {
   name.addEventListener("change", () => { trip.name = name.value.trim() || trip.name; store.save(); toast("Name saved"); });
   body.appendChild(h("div", { class: "glass card" }, h("span", { class: "eyebrow" }, "Trip"), h("h3", { style: { marginTop: "4px" } }, "Details"), h("label", { class: "field" }, "Trip name"), name,
     h("p", { class: "muted" }, `${trip.days.length} days \u00B7 ${fmtShort(trip.days[0]?.date)} to ${fmtShort(trip.days[trip.days.length - 1]?.date)}`),
-    h("div", { class: "row" }, h("button", { class: "btn small gold", type: "button", onclick: () => docsSheet(trip) }, ic("filePlus", 15), "Add or update documents"))));
+    h("div", { class: "row", style: { gap: "8px" } }, h("button", { class: "btn small gold", type: "button", onclick: () => tripLinkSheet(trip) }, ic("link", 15), "Share this trip"), h("button", { class: "btn small glass", type: "button", onclick: () => docsSheet(trip) }, ic("filePlus", 15), "Add or update documents"))));
 
   /* cover picture */
   const picker = h("div", { class: "coverpick", role: "radiogroup", "aria-label": "Cover picture" });

@@ -47,23 +47,25 @@ The app uses general travel scenes (a flight above the clouds, a lagoon, an alpi
 
 ---
 
-## 3. See your trips on another phone (share link)
+## 3. See a trip on another phone
 
-A trip you create lives in the browser of the phone that made it. To see it on a second phone, create a **share link** once:
+### The simple way: a link with the plan inside (no GitHub, no token)
+1. Open the trip, tap the **link button** at the top (or **Share this trip** in Trip settings).
+2. Choose how much detail to include, then **Copy link** or **Share...** and send it to your other phone (message, email, notes).
+3. Open the link on the other phone and tap **Add to this phone**. The trip works offline once added.
 
-1. On the phone that holds the trips, open the welcome page, scroll to **Share and sync**, tap **Create share link**.
-2. Paste a GitHub token (**Settings > Developer settings > Fine-grained tokens**, only this repository, **Contents: Read and write**), your GitHub username and the repository name. Tap **Create link**.
-3. Send the link to your other phone (Copy or Share) and open it there. Tap **Add to this phone**.
+The whole plan is packed into the link itself (the part after the `#`, which browsers never send to a server), so nothing is stored anywhere.
 
-From then on:
-- The second phone shows **all** your trips, marked *Shared*, and refreshes them every time you open the app (or tap *Refresh now*).
-- Whenever you change something on the first phone (a trip, a rearranged day, a new hotel, the cover) it syncs by itself a few seconds later.
-- **Each phone keeps its own Visited ticks and notes.** If the owner changes the plan, those changes replace edits made to the shared trips on the other phone.
-- Only the phone that created the link can change what is shared. The other phones are viewers.
+- **Link length:** a big itinerary makes a long link. The sheet shows the real length of each option: *Full details*, *Shorter descriptions* and *Names and map places only* (dates, places, map searches, hotels and flights). It picks the richest option under about 6,000 characters. Some chat apps cut very long links, so if the other phone says the link is incomplete, choose a shorter option, send the link by email or notes, or use **Save as file** and **Import a trip file** (that keeps every detail).
+- **Private things are left out:** your Visited ticks, notes, and the alert topic never go into the link. Hotel confirmation numbers and flight booking references are left out unless you tick the box.
+- **A link is a copy from that moment.** If you change the plan, copy a new link and open it on the other phone: it updates the same trip there and keeps that phone's ticks and notes.
+- Anyone who has the link can read the plan, so send it only to people you trust.
 
-**Privacy:** your trips are encrypted on the phone (AES-256) before they are stored in your repository as an unreadable file, and the key is only inside the link. Someone browsing your repository cannot read your plans. Anyone who has the link can, so send it only to people you trust. **Stop sharing** deletes the stored file and the link stops working; phones that already joined keep their copies.
-
-No GitHub? Use **Export file** on one phone, send the file (AirDrop, email, chat) and tap **Import a trip file** on the other. That copies the trips once and does not stay in sync.
+### Optional: live sync (needs a GitHub token)
+If you want every trip to appear on your other phone automatically and stay up to date without sending links again, use **Advanced: live sync** on the welcome page. It stores an encrypted copy in your GitHub repository, so it needs a token (**Settings > Developer settings > Fine-grained tokens**, only your repository, **Contents: Read and write**). Tap **Set up live sync**, paste the token, username and repository, and open the link it makes on the other phone.
+- The other phone refreshes each time you open the app. Changes on the first phone sync by themselves a few seconds later.
+- Each phone keeps its own Visited ticks and notes. Only the phone that created the link can change what is shared.
+- Your trips are encrypted (AES-256) before they are stored; the key is only in the link. **Stop live sync** deletes the stored copy.
 
 ---
 
@@ -97,7 +99,7 @@ ntfy can hold a message for up to 3 days. Open the app every few days and tap **
 
 ## 5. Updating an app you already uploaded
 
-Replace everything **except** the four dot-files (`.github/workflows/daily-alerts.yml`, `.nojekyll`, `data/alerts/.gitkeep`, `data/state/.gitkeep`), which did not change. Add the new files `js/share.js`, `js/shareui.js` and the new `img/` pictures, and delete the old `img/fuji.jpg`, `img/tokyo.jpg`, `img/kyoto.jpg`, `img/hk.jpg`. Trips already on a phone are kept.
+Replace everything **except** the four dot-files (`.github/workflows/daily-alerts.yml`, `.nojekyll`, `data/alerts/.gitkeep`, `data/state/.gitkeep`), which did not change. Add the new files `js/share.js`, `js/shareui.js`, `js/link.js` and the new `img/` pictures, and delete the old `img/fuji.jpg`, `img/tokyo.jpg`, `img/kyoto.jpg`, `img/hk.jpg`. Trips already on a phone are kept.
 
 ---
 
@@ -117,7 +119,8 @@ js/store.js              saves trips on the phone
 js/places.js             Wikipedia / Wikivoyage lookups and travel-site links
 js/maps.js               Google Maps links, embeds and optional pin map
 js/notify.js             ntfy alerts, GitHub sync, calendar file
-js/share.js              encrypted share link: save, load and merge trips
+js/link.js               trip-in-a-link sharing (no server, no token)
+js/share.js              optional live sync: encrypted copy in your GitHub repository
 js/shareui.js            share card, setup sheet and the join page
 js/util.js               small helpers, time zones
 lib/                     PDF.js (Apache-2.0) so the app works offline

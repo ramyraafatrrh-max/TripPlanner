@@ -1,8 +1,8 @@
 /* Service worker: keeps the app working offline and opens the right day when you tap a notification */
-const CACHE = "trippilot-v3";
+const CACHE = "trippilot-v4";
 const SHELL = [
   "./", "index.html", "css/style.css", "manifest.webmanifest",
-  "js/app.js", "js/ui.js", "js/util.js", "js/store.js", "js/parser.js", "js/places.js", "js/maps.js", "js/notify.js", "js/views-trip.js", "js/pdfloader.js", "js/icons.js", "js/docs.js", "js/share.js", "js/shareui.js",
+  "js/app.js", "js/ui.js", "js/util.js", "js/store.js", "js/parser.js", "js/places.js", "js/maps.js", "js/notify.js", "js/views-trip.js", "js/pdfloader.js", "js/icons.js", "js/docs.js", "js/share.js", "js/shareui.js", "js/link.js",
   "lib/pdf.min.mjs", "lib/pdf.worker.min.mjs", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png",
   "img/sky.jpg", "img/lagoon.jpg", "img/alpine.jpg", "img/harbour.jpg", "img/dunes.jpg", "img/stars.jpg"
 ];

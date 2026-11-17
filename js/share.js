@@ -4,7 +4,7 @@
 import * as store from "./store.js";
 import { settings } from "./store.js";
 import { appBase } from "./notify.js";
-import { uid } from "./util.js";
+import { uid, randomTopic } from "./util.js";
 
 const enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -245,8 +245,8 @@ export function disconnectViewer() {
 }
 
 /* ---------- plain file fallback: no GitHub needed ---------- */
-export function exportFile() {
-  const list = store.trips().map(t => { const c = JSON.parse(JSON.stringify(t)); delete c.viaShare; return c; });
+export function exportFile(onlyId) {
+  const list = store.trips().filter(t => !onlyId || t.id === onlyId).map(t => { const c = JSON.parse(JSON.stringify(t)); delete c.viaShare; if (c.settings) { c.settings.scheduled = {}; delete c.settings.topic; } return c; });
   return JSON.stringify({ app: "trip-pilot", v: 1, exported: Date.now(), trips: list }, null, 2);
 }
 export function importFile(text) {
@@ -258,6 +258,7 @@ export function importFile(text) {
     if (!t || !Array.isArray(t.days)) return;
     if (store.getTrip(t.id)) { t.id = uid("trip"); t.name = t.name + " (copy)"; }
     delete t.viaShare;
+    t.settings = Object.assign({ notifyTime: "07:30", includeNames: false, tz: "auto", scheduled: {} }, t.settings, { topic: randomTopic() });
     store.trips().push(t); n++;
   });
   store.save();

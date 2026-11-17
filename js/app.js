@@ -7,7 +7,7 @@ import { $, go, shell, fly, toast, confirmSheet, setBackground } from "./ui.js";
 import { ic, ring } from "./icons.js";
 import { planView, placeView, hotelsView, flightsView, settingsView } from "./views-trip.js";
 import * as share from "./share.js";
-import { shareCard, joinView } from "./shareui.js";
+import { shareCard, joinView, importView } from "./shareui.js";
 
 const app = $("#app");
 let draft = null;
@@ -90,7 +90,7 @@ function welcomeView() {
     h("section", { class: "glass card" }, h("span", { class: "eyebrow" }, "Begin"), h("h2", { style: { marginTop: "4px" } }, "Start a new trip"), drops, h("div", { style: { marginTop: "14px" } }, go_), status),
     h("h2", { class: "section-title" }, "Confirmed trips"), list,
     h("h2", { class: "section-title" }, "Share and sync"), shareCard(),
-    h("p", { class: "footnote" }, ic("check", 14), "Your files are read on this phone. Nothing is uploaded anywhere.")));
+    h("p", { class: "footnote" }, ic("check", 14), "Your files are read on this phone. Nothing is uploaded unless you turn on live sync.")));
 }
 
 function suggestName(itin) {
@@ -149,6 +149,7 @@ function parseRoute() {
   const pathPart = q >= 0 ? raw.slice(0, q) : raw;
   const parts = pathPart.split("/").filter(Boolean);
   if (!parts.length) return { name: "welcome", depth: 0, order: 0 };
+  if (parts[0] === "t" && parts[1]) return { name: "import", depth: 1, order: 0, payload: parts.slice(1).join("/") };
   if (parts[0] === "join") return { name: "join", depth: 1, order: 0, link: share.parseLink(q >= 0 ? raw.slice(q + 1) : "") };
   if (parts[0] === "new") return { name: "new", depth: 1, order: 0 };
   if (parts[0] === "trip" && parts[1]) {
@@ -180,7 +181,7 @@ async function render(instant = false) {
   if (my !== token) return;
   let el;
   try {
-    el = ({ welcome: welcomeView, new: newTripView, join: joinView, plan: planView, hotels: hotelsView, flights: flightsView, place: placeView, settings: settingsView }[route.name])(route);
+    el = ({ welcome: welcomeView, new: newTripView, join: joinView, import: importView, plan: planView, hotels: hotelsView, flights: flightsView, place: placeView, settings: settingsView }[route.name])(route);
   } catch (e) {
     console.error(e);
     el = h("div", { class: "page" }, h("div", { class: "glass card" }, h("h2", null, "Something went wrong"), h("p", { class: "muted" }, String((e && e.message) || e)), h("a", { class: "btn gold", href: "#/" }, "Back to start")));
