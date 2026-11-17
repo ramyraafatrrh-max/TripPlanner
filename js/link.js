@@ -116,7 +116,7 @@ function normalize(t) {
 
 function validSync(x) {
   if (!x || typeof x !== "object") return undefined;
-  const b = x.b === "ep" ? "ep" : "js";
+  const b = x.b === "ep" || x.b === "mn" ? x.b : "js";
   const r = clean(x.r, 120), k = clean(x.k, 64);
   if (!/^[\w\-\/.]{6,120}$/.test(r) || !/^[\w-]{20,64}$/.test(k)) return undefined;
   return { b, r, k, since: Date.now(), lastSync: 0 };

@@ -78,9 +78,15 @@ Notes:
 - **Privacy:** the progress is encrypted (AES-256) before it leaves the phone; the key exists only inside the link, so the storage service sees an unreadable blob.
 - Use **Test connection** in the share sheet to check, step by step, that the sync service works from your phone.
 
-**Where the rooms live.** By default the app uses the free public service **jsonstorage.net**, which needs no account. It is a third-party service: it can change its limits or disappear, and I could not test it from where I built this, so run *Test connection* on a real phone first. If it ever stops working, ticks stay safe on each phone; only the live sharing stops.
+**Where the rooms live.** With nothing set up, the app tries free public stores in this order and uses the first one that really works from the phone (it creates a room, reads it back, and only then relies on it):
+1. **MantleDB** (mantledb.sh): anonymous, no key. Its documented limits: 64 KB per entry, rate-limited above 10,000 requests a day per namespace, and an unclaimed namespace is deleted after 30 days without a write. Each trip gets its own random namespace.
+2. **jsonstorage.net**: free, but its own documentation asks for an API key to create items while its homepage says no authentication is needed. In practice it can answer *400* to anonymous creates, which is what happened in the first test on a real phone.
 
-**Recommended for a real app: your own tiny sync server (free, 5 minutes, once).** Your users still need no account; only you, the app owner, set it up:
+These are third-party services: they can change their rules or disappear, and **I have not been able to run the app against the real MantleDB**, so use **Test connection** on a real phone. It runs the full create / read / update / read-back check on every service and shows each result and the service's actual reply, so a failure can be pinpointed. If none works, ticks stay safe on each phone and only the live sharing stops. A trip that nobody ticks for 30 days can lose its room on MantleDB; the next tick on any phone recreates it.
+
+**How fast do others see a tick?** Your tick is sent about a second after you make it. A phone that has the app open picks up changes about every 30 seconds, and immediately when you switch back to the app or tap *Sync now*. The 30 seconds keeps a trip well inside MantleDB's daily request limit.
+
+**Recommended once you have real users: your own tiny sync server (free, 5 minutes, once).** It does not depend on anyone else's free tier. Your users still need no account; only you, the app owner, set it up:
 1. In your Cloudflare account (free): **Workers & Pages > KV > Create a namespace** called `trip-rooms`.
 2. **Workers & Pages > Create > Worker**, paste the contents of `worker/worker.js`, deploy.
 3. In the Worker: **Settings > Bindings > Add > KV namespace**, variable name `ROOMS`, namespace `trip-rooms`.

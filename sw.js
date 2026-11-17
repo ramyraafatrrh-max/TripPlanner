@@ -1,5 +1,5 @@
 /* Service worker: keeps the app working offline and opens the right day when you tap a notification */
-const CACHE = "trippilot-v5";
+const CACHE = "trippilot-v6";
 const IMG_CACHE = "trippilot-photos-v1";
 const IMG_HOST = "upload.wikimedia.org";
 const IMG_MAX = 60;

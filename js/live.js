@@ -3,7 +3,7 @@
    Each place holds one entry [visited, time]; the newest entry wins, so un-ticking also travels. */
 import * as store from "./store.js";
 import { encryptJSON, decryptJSON, newSecret } from "./secure.js";
-import { getBackend, defaultBackend, BackendError } from "./backend.js";
+import { getBackend, providers, BackendError } from "./backend.js";
 
 /* ---------- time-stamped entries ---------- */
 export const stampOf = s => s.vts || (s.visited ? (s.visitedAt || 1) : 0);
@@ -55,14 +55,22 @@ export function ago(ts) {
 /* ---------- turn live progress on / off ---------- */
 export async function enable(trip) {
   if (trip.live) return trip.live;
-  const be = defaultBackend();
   const key = newSecret(32);
   const stops = localEntries(trip);
-  const room = await be.create(await encryptJSON({ v: 1, updated: Date.now(), stops }, key));
-  trip.live = { b: be.id, r: room, k: key, since: Date.now(), lastSync: Date.now() };
-  store.save(true);
-  setStatus(trip.id, "ok", "Live progress is on");
-  return trip.live;
+  const doc = await encryptJSON({ v: 1, updated: Date.now(), stops }, key);
+  const problems = [];
+  for (const be of providers()) {
+    try {
+      const room = await be.create(doc);
+      const back = await be.read(room);                       // prove the other side can read it before relying on it
+      if (!back || back.ct !== doc.ct) throw new BackendError("mismatch", "What was read back did not match what was saved.");
+      trip.live = { b: be.id, r: room, k: key, since: Date.now(), lastSync: Date.now() };
+      store.save(true);
+      setStatus(trip.id, "ok", "Live progress is on");
+      return trip.live;
+    } catch (e) { problems.push(`${be.label}: ${e.message}`); }
+  }
+  throw new BackendError("none", "No sync service worked from this phone. " + problems.join(" | "));
 }
 export function disable(trip) { delete trip.live; state.delete(trip.id); store.save(true); window.dispatchEvent(new CustomEvent("live-status", { detail: { id: trip.id } })); }
 export const isLive = trip => !!(trip && trip.live && trip.live.r && trip.live.k);
@@ -125,7 +133,7 @@ function syncAll(onlyDue) {
 }
 export function start() {
   if (poller) return;
-  poller = setInterval(() => syncAll(true), 20000);
+  poller = setInterval(() => syncAll(true), 30000);
   document.addEventListener("visibilitychange", () => syncAll(false));
   window.addEventListener("online", () => syncAll(false));
   setTimeout(() => syncAll(false), 800);

@@ -4,7 +4,7 @@ import * as store from "./store.js";
 import * as share from "./share.js";
 import * as link from "./link.js";
 import * as live from "./live.js";
-import { testBackend, defaultBackend } from "./backend.js";
+import { testAll } from "./backend.js";
 import { shell, openSheet, toast, go } from "./ui.js";
 import { ic } from "./icons.js";
 
@@ -21,11 +21,17 @@ async function shareLink(url, title) {
 /* ---------- live progress controls (used in the share sheet and in settings) ---------- */
 export function connectionTest(box) {
   box.innerHTML = "";
-  box.appendChild(h("p", { class: "muted" }, h("span", { class: "spinner" }), "Checking the sync service\u2026"));
-  return testBackend().then(r => {
+  box.appendChild(h("p", { class: "muted" }, h("span", { class: "spinner" }), "Checking the sync services\u2026"));
+  return testAll().then(list => {
     box.innerHTML = "";
-    r.steps.forEach(st => box.appendChild(h("div", { class: "kv" }, ic(st.ok ? "check" : "x", 16, 2.2), h("span", null, st.label + (st.ok ? "" : ": " + st.msg)))));
-    box.appendChild(h("div", { class: r.ok ? "banner" : "warnbox" }, r.ok ? `Works. Live progress will use ${r.label}.` : `Not working: ${r.error} Live progress will not sync until this works. Your ticks stay safe on this phone.`));
+    list.forEach(r => {
+      box.appendChild(h("div", { class: "eyebrow", style: { margin: "10px 0 4px" } }, r.label));
+      r.steps.forEach(st => box.appendChild(h("div", { class: "kv" }, ic(st.ok ? "check" : "x", 16, 2.2), h("span", null, st.label + (st.ok ? "" : ": " + st.msg)))));
+    });
+    const good = list.find(r => r.ok);
+    box.appendChild(h("div", { class: good ? "banner" : "warnbox" }, good
+      ? `Works. Live progress will use ${good.label}.`
+      : "None of the sync services worked from this phone, so live progress cannot sync yet. Your ticks stay safe on this phone. Set up your own free sync server (see the README) and it will work for everyone."));
   });
 }
 export function liveStatusLine(trip) {
