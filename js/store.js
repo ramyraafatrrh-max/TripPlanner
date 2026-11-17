@@ -2,7 +2,7 @@
 import { uid, randomTopic, cityToTz, shortStopName, normName } from "./util.js";
 
 const KEY = "trippilot.v1";
-const DEFAULT_SETTINGS = { mapsKey: "", ghToken: "", ghOwner: "", ghRepo: "", geo: {}, wiki: {} };
+const DEFAULT_SETTINGS = { mapsKey: "", ghToken: "", ghOwner: "", ghRepo: "", geo: {}, wiki: {}, profile: null };
 let state = { trips: [], settings: Object.assign({}, DEFAULT_SETTINGS) };
 
 export function load() {
@@ -15,12 +15,16 @@ export function load() {
   } catch (e) { console.warn("Could not read saved data", e); }
   return state;
 }
-export function save() {
+let saveHook = null;
+export function setSaveHook(fn) { saveHook = fn; }
+/* save(true) writes without telling the sharing engine (used for sync bookkeeping) */
+export function save(quiet) {
   try { localStorage.setItem(KEY, JSON.stringify(state)); }
   catch (e) {
     state.settings.wiki = {};
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e2) { alert("Storage is full. Delete an old trip to free space."); }
   }
+  if (!quiet && saveHook) saveHook();
 }
 export const settings = () => state.settings;
 export const trips = () => state.trips;
@@ -55,7 +59,8 @@ export function buildTrip({ name, year, stops, hotels, flights, sources }) {
     hotels: (hotels || []).map(x => Object.assign({ id: uid("h") }, x)),
     flights: (flights || []).map(x => Object.assign({ id: uid("f") }, x)),
     sources: sources || [],
-    settings: { notifyTime: "07:30", topic: randomTopic(), includeNames: false, scheduled: {} }
+    settings: { notifyTime: "07:30", topic: randomTopic(), includeNames: false, tz: "auto", scheduled: {} },
+    cover: ""
   };
 }
 
@@ -63,6 +68,7 @@ export function buildTrip({ name, year, stops, hotels, flights, sources }) {
 export function replaceItinerary(trip, stops, year) {
   const keptVisited = trip.days.reduce((n, d) => n + d.stops.filter(s => s.visited).length, 0);
   trip.days = buildDays(stops, trip.days);
+  applyTz(trip);
   if (year) trip.year = year;
   const after = trip.days.reduce((n, d) => n + d.stops.filter(s => s.visited).length, 0);
   save();
@@ -88,19 +94,25 @@ export function upsertFlights(trip, list) {
   save(); return { added, updated };
 }
 
-/* which cover picture suits this trip */
+/* cover pictures: general travel scenes the user can choose from */
+export const COVERS = [
+  { id: "sky", label: "Above the clouds" }, { id: "lagoon", label: "Lagoon" }, { id: "alpine", label: "Alpine lake" },
+  { id: "harbour", label: "Old harbour" }, { id: "dunes", label: "Desert dunes" }, { id: "stars", label: "Starry camp" }
+];
 export function coverKey(trip) {
-  const pick = text => {
-    text = (text || "").toLowerCase();
-    if (/hong kong|kowloon/.test(text)) return "hk";
-    if (/tokyo|yokohama/.test(text)) return "tokyo";
-    if (/kyoto|osaka|kansai|nara|kobe/.test(text)) return "kyoto";
-    if (/japan/.test(text)) return "tokyo";
-    return "";
-  };
-  return pick(trip.days[0] && trip.days[0].city) || pick(trip.name) || "fuji";
+  if (trip.cover && COVERS.some(c => c.id === trip.cover)) return trip.cover;
+  let n = 0;
+  const str = String(trip.id || trip.name || "");
+  for (let i = 0; i < str.length; i++) n = (n * 31 + str.charCodeAt(i)) >>> 0;
+  return COVERS[n % COVERS.length].id;
 }
 export const coverUrl = key => `img/${key}.jpg`;
+
+/* time zone used for each day's morning alert: follow the city in the itinerary, or one fixed zone */
+export function applyTz(trip) {
+  const fixed = trip.settings && trip.settings.tz && trip.settings.tz !== "auto" ? trip.settings.tz : "";
+  trip.days.forEach(d => { d.tz = fixed || cityToTz(d.city); });
+}
 
 export function dayCities(day) {
   const set = [];

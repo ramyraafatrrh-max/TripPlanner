@@ -218,7 +218,7 @@ export function parseHotel(text, filename, defaultYear) {
   out.phone = firstMatch(text, /(?:phone|tel(?:ephone)?|contact)[^\d\n+]{0,12}(\+?\d[\d \-().]{7,}\d)/i);
   const ai = lines.findIndex(l => /^address\b/i.test(l));
   if (ai >= 0) out.address = (lines[ai].replace(/^address\s*[:\-]?\s*/i, "") || lines[ai + 1] || "").trim();
-  if (!out.address) out.address = lines.find(l => /\b\d{3}-\d{4}\b/.test(l) || /\b\d{1,4}[-\s]\d{1,3}[-\s]\d{1,3}\b.*(?:ku|city|tokyo|osaka|kyoto|hong kong)/i.test(l)) || "";
+  if (!out.address) out.address = lines.find(l => /\b\d{3}-\d{4}\b/.test(l) || /\b\d{1,4}[-\s]\d{1,3}[-\s]\d{1,3}\b.*(?:ku|city|street|st\\.|road|rd\\.|avenue|ave\\.)/i.test(l)) || "";
   const nights = firstMatch(text, /(\d+)\s*nights?/i);
   if (nights) out.notes = nights + " night(s)";
   return out;

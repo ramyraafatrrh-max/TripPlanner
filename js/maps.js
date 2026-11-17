@@ -77,7 +77,7 @@ export async function drawDayMap(container, stops, onPick) {
   const google = await loadGoogle(key);
   await google.maps.importLibrary("maps");
   await google.maps.importLibrary("geocoding");
-  const map = new google.maps.Map(container, { zoom: 12, center: { lat: 35.68, lng: 139.76 }, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, styles: DARK_MAP });
+  const map = new google.maps.Map(container, { zoom: 3, center: { lat: 25, lng: 10 }, mapTypeControl: false, streetViewControl: false, fullscreenControl: true, styles: DARK_MAP });
   const geocoder = new google.maps.Geocoder();
   const bounds = new google.maps.LatLngBounds();
   const path = [];

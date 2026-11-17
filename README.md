@@ -34,12 +34,12 @@ Everything is stored in your phone's browser (localStorage). There is no server 
 5. **Hotels** and **Flights** tabs are read from your PDFs (best effort) and always **editable**. The Plan tab shows which hotel and flights belong to each day.
 
 ### About the PDF you upload
-- The reader is tuned for the itinerary format produced in this project (Tokyo / Osaka / Hong Kong tables). It also reads the **Google Maps links inside the PDF**, so each stop lands on the exact place.
+- The reader is tuned for the table itinerary format produced in this project (Date / Location / Maps link / Transit / Activity / Baby notes / Eats). It also reads the **Google Maps links inside the PDF**, so each stop lands on the exact place.
 - Other PDFs are split by date headings as a fallback. Check the days after creating the trip.
 - Scanned images or photos cannot be read (there is no OCR). Use text PDFs, or add hotels and flights by hand.
 
 ### Pictures
-The welcome page uses a photograph (`img/fuji.jpg`). The Tokyo, Kyoto and Hong Kong covers (`img/tokyo.jpg`, `img/kyoto.jpg`, `img/hk.jpg`) are illustrations. To use your own photos, replace those files with images of similar size and keep the file names.
+The app uses general travel scenes (a flight above the clouds, a lagoon, an alpine lake, an old harbour, desert dunes, a starry camp). Each trip gets one automatically and you can change it in **Trip settings > Cover picture**. To use your own photos, replace the files in `img/` (keep the same names, about 1000 px wide).
 
 ### Google Maps
 - Works with **no key**: route links, an embedded preview and place maps.
@@ -47,7 +47,27 @@ The welcome page uses a photograph (`img/fuji.jpg`). The Tokyo, Kyoto and Hong K
 
 ---
 
-## 3. Morning alerts on your phone
+## 3. See your trips on another phone (share link)
+
+A trip you create lives in the browser of the phone that made it. To see it on a second phone, create a **share link** once:
+
+1. On the phone that holds the trips, open the welcome page, scroll to **Share and sync**, tap **Create share link**.
+2. Paste a GitHub token (**Settings > Developer settings > Fine-grained tokens**, only this repository, **Contents: Read and write**), your GitHub username and the repository name. Tap **Create link**.
+3. Send the link to your other phone (Copy or Share) and open it there. Tap **Add to this phone**.
+
+From then on:
+- The second phone shows **all** your trips, marked *Shared*, and refreshes them every time you open the app (or tap *Refresh now*).
+- Whenever you change something on the first phone (a trip, a rearranged day, a new hotel, the cover) it syncs by itself a few seconds later.
+- **Each phone keeps its own Visited ticks and notes.** If the owner changes the plan, those changes replace edits made to the shared trips on the other phone.
+- Only the phone that created the link can change what is shared. The other phones are viewers.
+
+**Privacy:** your trips are encrypted on the phone (AES-256) before they are stored in your repository as an unreadable file, and the key is only inside the link. Someone browsing your repository cannot read your plans. Anyone who has the link can, so send it only to people you trust. **Stop sharing** deletes the stored file and the link stops working; phones that already joined keep their copies.
+
+No GitHub? Use **Export file** on one phone, send the file (AirDrop, email, chat) and tap **Import a trip file** on the other. That copies the trips once and does not stay in sync.
+
+---
+
+## 4. Morning alerts on your phone
 
 Phones will not let a plain web page wake up and notify you with the app closed, so this app uses the free **ntfy** service plus an optional GitHub schedule.
 
@@ -61,7 +81,7 @@ Then pick one way to send the daily alerts:
 1. On github.com open **Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token**. Choose **only this repository** and give **Contents: Read and write**. Copy the token.
 2. In the app, **Trip settings > GitHub**: paste the token (username and repository are detected automatically; fill them in if not). The token stays on your phone.
 3. Tap **Sync alerts to GitHub**. This saves `data/alerts/<trip>.json` in your repository.
-4. In the repository open the **Actions** tab and enable workflows if asked. **Daily trip alerts** runs every 15 minutes and sends each day's alert once, after your chosen time (default 07:30, in the local time of the place you are that day).
+4. In the repository open the **Actions** tab and enable workflows if asked. **Daily trip alerts** runs every 15 minutes and sends each day's alert once, after your chosen time (default 07:30, in the time zone of the place you are that day; you can pick a fixed zone in Trip settings).
 5. Re-sync after you rearrange days or change the alert time.
 6. If the "Remember what was sent" step fails, go to **Settings > Actions > General > Workflow permissions** and choose *Read and write permissions*.
 
@@ -72,6 +92,12 @@ ntfy can hold a message for up to 3 days. Open the app every few days and tap **
 
 ### Option C: calendar reminders
 **Download calendar (.ics)**, open it on your phone and your calendar app adds one reminder per day.
+
+---
+
+## 5. Updating an app you already uploaded
+
+Replace everything **except** the four dot-files (`.github/workflows/daily-alerts.yml`, `.nojekyll`, `data/alerts/.gitkeep`, `data/state/.gitkeep`), which did not change. Add the new files `js/share.js`, `js/shareui.js` and the new `img/` pictures, and delete the old `img/fuji.jpg`, `img/tokyo.jpg`, `img/kyoto.jpg`, `img/hk.jpg`. Trips already on a phone are kept.
 
 ---
 
@@ -91,9 +117,11 @@ js/store.js              saves trips on the phone
 js/places.js             Wikipedia / Wikivoyage lookups and travel-site links
 js/maps.js               Google Maps links, embeds and optional pin map
 js/notify.js             ntfy alerts, GitHub sync, calendar file
+js/share.js              encrypted share link: save, load and merge trips
+js/shareui.js            share card, setup sheet and the join page
 js/util.js               small helpers, time zones
 lib/                     PDF.js (Apache-2.0) so the app works offline
-img/                     backdrop photo and city covers
+img/                     six general travel pictures used as backdrops and covers
 sw.js, manifest.webmanifest, icons/    install on the home screen, offline use
 scripts/send-alerts.mjs  the script the GitHub Action runs
 .github/workflows/daily-alerts.yml   the daily schedule
@@ -102,6 +130,6 @@ data/alerts, data/state  where alert files and "already sent" records live
 
 ## Limits worth knowing
 - **TripAdvisor** (and most travel sites) do not let a web page read their content, and their official data needs a paid key and a server. The place page therefore pulls summaries from Wikipedia and Wikivoyage and gives one-tap links to TripAdvisor, Google reviews and others.
-- Trips live in one browser on one phone. Clearing the browser's data deletes them. They do not sync between devices.
+- Without a share link, trips live in one browser on one phone. Clearing the browser's data deletes them.
 - The map preview without a key uses Google's public embed address, which Google can change; the "Open in Google Maps" buttons always work.
 - Hotel and flight details read from PDFs depend on how each PDF is laid out. Always check them and tap Edit.

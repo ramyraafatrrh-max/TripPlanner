@@ -38,20 +38,25 @@ export function fmtLong(iso) { if (!iso) return ""; const d = parseISO(iso); ret
 export function daysBetween(a, b) { return Math.round((parseISO(b) - parseISO(a)) / 86400000); }
 export function addDaysISO(iso, n) { const d = parseISO(iso); d.setUTCDate(d.getUTCDate() + n); return d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate()); }
 
+const TZ_RULES = [
+  [/hong kong|kowloon|macau/, "Asia/Hong_Kong"], [/tokyo|osaka|kyoto|nara|kobe|yokohama|japan|kansai/, "Asia/Tokyo"], [/seoul|busan|korea/, "Asia/Seoul"],
+  [/beijing|shanghai|shenzhen|guangzhou|china|taipei|taiwan/, "Asia/Shanghai"], [/singapore/, "Asia/Singapore"], [/bangkok|phuket|chiang|thailand/, "Asia/Bangkok"],
+  [/bali|jakarta|indonesia/, "Asia/Jakarta"], [/hanoi|ho chi minh|saigon|vietnam/, "Asia/Ho_Chi_Minh"], [/kuala lumpur|malaysia/, "Asia/Kuala_Lumpur"],
+  [/delhi|mumbai|bangalore|india|goa|jaipur/, "Asia/Kolkata"], [/kathmandu|nepal/, "Asia/Kathmandu"], [/maldives|male\b/, "Indian/Maldives"],
+  [/dubai|abu dhabi|uae|emirates/, "Asia/Dubai"], [/doha|qatar/, "Asia/Qatar"], [/riyadh|jeddah|saudi/, "Asia/Riyadh"], [/istanbul|turkey|ankara|antalya/, "Europe/Istanbul"],
+  [/cairo|giza|luxor|egypt|sharm|hurghada/, "Africa/Cairo"], [/marrakech|casablanca|morocco/, "Africa/Casablanca"], [/nairobi|kenya|zanzibar|tanzania/, "Africa/Nairobi"], [/cape town|johannesburg|south africa/, "Africa/Johannesburg"],
+  [/london|edinburgh|uk\b|england|scotland/, "Europe/London"], [/dublin|ireland/, "Europe/Dublin"], [/lisbon|porto|portugal/, "Europe/Lisbon"], [/athens|greece|santorini|crete/, "Europe/Athens"],
+  [/paris|lyon|nice\b|france|rome|milan|venice|florence|italy|madrid|barcelona|spain|berlin|munich|germany|amsterdam|netherlands|brussels|vienna|prague|budapest|zurich|geneva|switzerland|swiss|copenhagen|stockholm|oslo|warsaw|croatia|dubrovnik/, "Europe/Paris"],
+  [/new york|boston|miami|washington|toronto|montreal|orlando/, "America/New_York"], [/chicago|dallas|houston|austin|new orleans|mexico city/, "America/Chicago"], [/denver|phoenix/, "America/Denver"],
+  [/los angeles|san francisco|seattle|las vegas|san diego|vancouver|california/, "America/Los_Angeles"], [/hawaii|honolulu/, "Pacific/Honolulu"],
+  [/rio|sao paulo|brazil|buenos aires|argentina/, "America/Sao_Paulo"], [/sydney|melbourne|canberra|australia/, "Australia/Sydney"], [/auckland|queenstown|new zealand/, "Pacific/Auckland"]
+];
 export function cityToTz(city) {
   const c = (city || "").toLowerCase();
-  if (/hong kong|kowloon|macau/.test(c)) return "Asia/Hong_Kong";
-  if (/tokyo|osaka|kyoto|nara|kobe|japan|kansai|yokohama/.test(c)) return "Asia/Tokyo";
-  if (/singapore/.test(c)) return "Asia/Singapore";
-  if (/bangkok|thailand/.test(c)) return "Asia/Bangkok";
-  if (/seoul|korea/.test(c)) return "Asia/Seoul";
-  if (/dubai/.test(c)) return "Asia/Dubai";
-  if (/cairo|egypt/.test(c)) return "Africa/Cairo";
-  if (/london/.test(c)) return "Europe/London";
-  if (/paris|rome|madrid|berlin|amsterdam/.test(c)) return "Europe/Paris";
-  if (/new york/.test(c)) return "America/New_York";
+  for (const [re, tz] of TZ_RULES) if (re.test(c)) return tz;
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; }
 }
+export const COMMON_TZ = ["Africa/Cairo", "Africa/Johannesburg", "Africa/Nairobi", "America/Chicago", "America/Los_Angeles", "America/New_York", "America/Sao_Paulo", "Asia/Bangkok", "Asia/Dubai", "Asia/Hong_Kong", "Asia/Kolkata", "Asia/Seoul", "Asia/Shanghai", "Asia/Singapore", "Asia/Tokyo", "Australia/Sydney", "Europe/Athens", "Europe/Istanbul", "Europe/London", "Europe/Paris", "Pacific/Auckland", "UTC"];
 function tzOffsetMinutes(tz, utcMs) {
   const dtf = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const o = {};

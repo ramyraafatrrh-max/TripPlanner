@@ -7,6 +7,8 @@ import { webInfo, stopLinks, searchTermFor } from "./places.js";
 import { shell, toast, openSheet, confirmSheet, roundBtn, go } from "./ui.js";
 import { ic, ring } from "./icons.js";
 import { docsSheet, uploadButton } from "./docs.js";
+import { shareCard } from "./shareui.js";
+import { COMMON_TZ } from "./util.js";
 
 const planUI = {}; // per trip: {dayId, rearrange, sel:Set, map, fromHotel}
 
@@ -442,6 +444,20 @@ export function settingsView(route) {
     h("p", { class: "muted" }, `${trip.days.length} days \u00B7 ${fmtShort(trip.days[0]?.date)} to ${fmtShort(trip.days[trip.days.length - 1]?.date)}`),
     h("div", { class: "row" }, h("button", { class: "btn small gold", type: "button", onclick: () => docsSheet(trip) }, ic("filePlus", 15), "Add or update documents"))));
 
+  /* cover picture */
+  const picker = h("div", { class: "coverpick", role: "radiogroup", "aria-label": "Cover picture" });
+  store.COVERS.forEach(c => picker.appendChild(h("button", { type: "button", role: "radio", "aria-checked": store.coverKey(trip) === c.id, "aria-label": c.label, class: store.coverKey(trip) === c.id ? "on" : "", style: { backgroundImage: `url("${store.coverUrl(c.id)}")` },
+    onclick: () => { trip.cover = c.id; store.save(); window.dispatchEvent(new CustomEvent("trip-refresh")); } }, h("span", null, c.label))));
+  body.appendChild(h("div", { class: "glass card" }, h("span", { class: "eyebrow" }, "Look"), h("h3", { style: { marginTop: "4px" } }, "Cover picture"), picker));
+
+  /* sharing */
+  body.appendChild(shareCard());
+
+  /* time zone for the alerts */
+  const tzSel = h("select", { "aria-label": "Alert time zone" }, h("option", { value: "auto" }, "Follow the city in my itinerary"), COMMON_TZ.map(z => h("option", { value: z }, z.replace("_", " "))));
+  tzSel.value = (t.tz && t.tz !== "auto") ? t.tz : "auto";
+  tzSel.addEventListener("change", () => { t.tz = tzSel.value; store.applyTz(trip); t.scheduled = {}; store.save(); toast("Time zone saved. Sync alerts again to update the schedule."); });
+
   const time = h("input", { type: "time", value: t.notifyTime });
   time.addEventListener("change", () => { t.notifyTime = time.value || "07:30"; t.scheduled = {}; store.save(); toast("Alert time saved. Sync again to update the schedule."); });
   const urls = notify.topicUrls(trip);
@@ -451,7 +467,8 @@ export function settingsView(route) {
     h("span", { class: "eyebrow" }, "Alerts"), h("h3", { style: { marginTop: "4px" } }, "Morning alerts on your phone"),
     h("p", { class: "muted" }, "Each morning you get a notification with a link to that day's plan, sent through the free ntfy service."),
     h("ol", null, h("li", null, "Install the free ", h("b", null, "ntfy"), " app (App Store or Google Play)."), h("li", null, "In ntfy tap + and subscribe to this topic: ", h("kbd", null, t.topic)), h("li", null, "Tap Send test to check it works."), h("li", null, "Choose how alerts are sent (below).")),
-    h("label", { class: "field" }, "Send alerts at (local time of each day)"), time,
+    h("label", { class: "field" }, "Send alerts at (local time)"), time,
+    h("label", { class: "field" }, "Time zone"), tzSel,
     h("div", { class: "row", style: { marginTop: "12px", gap: "8px" } },
       h("a", { class: "btn small glass", href: urls.app }, "Open ntfy app"),
       h("a", { class: "btn small glass", href: urls.web, target: "_blank", rel: "noopener" }, "ntfy web"),
@@ -489,7 +506,7 @@ export function settingsView(route) {
   body.appendChild(h("div", { class: "glass card" }, h("span", { class: "eyebrow" }, "Optional"), h("h3", { style: { marginTop: "4px" } }, "Google Maps pins"),
     h("p", { class: "muted" }, "Without a key you still get route links and an embedded preview. With your own key (Maps JavaScript API, Geocoding API and Maps Embed API enabled, restricted to your site address) the day map shows numbered pins."), key));
 
-  body.appendChild(h("div", { class: "glass card" }, h("h3", null, "Danger zone"),
+  body.appendChild(h("div", { class: "glass card" }, h("h3", null, "Danger zone"), trip.viaShare ? h("p", { class: "muted" }, "This trip comes from a shared profile. If you remove it here it comes back the next time the owner updates the plan. Use Disconnect in Share and sync to stop that.") : null,
     h("button", { class: "btn danger", type: "button", onclick: () => confirmSheet("Delete this trip?", "Your progress and notes for \"" + trip.name + "\" will be removed from this device.", "Delete trip", async () => {
       try { await notify.removeFromGithub(trip); } catch (e) { /* ignore */ }
       store.removeTrip(trip.id); go("#/", { replace: true }); toast("Trip deleted");

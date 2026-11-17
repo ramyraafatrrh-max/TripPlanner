@@ -270,3 +270,11 @@ input[type=checkbox] { accent-color: var(--gold); width: 20px; height: 20px; mar
 .stat-line { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: .82rem; }
 .stat-line span { display: inline-flex; align-items: center; gap: 5px; }
 .footnote { text-align: center; color: var(--dim); font-size: .8rem; margin-top: 30px; display: flex; gap: 6px; justify-content: center; align-items: center; }
+
+.linkrow input { font-size: .82rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; text-overflow: ellipsis; }
+.coverpick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.coverpick button { position: relative; height: 70px; border-radius: 16px; border: 2px solid transparent; background-size: cover; background-position: center; overflow: hidden; padding: 0; color: #fff; display: flex; align-items: flex-end; }
+.coverpick button::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7, 11, 20, 0) 40%, rgba(7, 11, 20, .85)); }
+.coverpick button span { position: relative; z-index: 1; font-size: .64rem; font-weight: 600; letter-spacing: .04em; padding: 0 8px 6px; text-align: left; line-height: 1.2; }
+.coverpick button.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(217, 179, 108, .35); }
+.coverpick button.on::after { content: ""; position: absolute; right: 7px; top: 7px; width: 16px; height: 16px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 2px rgba(7, 11, 20, .6); }

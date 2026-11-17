@@ -6,6 +6,8 @@ import { getPdfjs } from "./pdfloader.js";
 import { $, go, shell, fly, toast, confirmSheet, setBackground } from "./ui.js";
 import { ic, ring } from "./icons.js";
 import { planView, placeView, hotelsView, flightsView, settingsView } from "./views-trip.js";
+import * as share from "./share.js";
+import { shareCard, joinView } from "./shareui.js";
 
 const app = $("#app");
 let draft = null;
@@ -76,7 +78,7 @@ function welcomeView() {
         h("div", { class: "photo", style: { backgroundImage: `url("${store.coverUrl(store.coverKey(t))}")` } },
           h("div", { class: "over" }, h("span", { class: "eyebrow" }, `${fmtShort(first)} \u2013 ${fmtShort(last)} \u00B7 ${t.days.length} days`), h("h3", null, t.name))),
         h("div", { class: "foot" },
-          h("div", { class: "stat-line" }, h("span", null, ic("hotel", 14), `${t.hotels.length} hotel${t.hotels.length === 1 ? "" : "s"}`), h("span", null, ic("plane", 14), `${t.flights.length} flight${t.flights.length === 1 ? "" : "s"}`), h("span", null, ic("pin", 14), `${p.total} places`)),
+          h("div", { class: "stat-line" }, h("span", null, ic("hotel", 14), `${t.hotels.length} hotel${t.hotels.length === 1 ? "" : "s"}`), h("span", null, ic("plane", 14), `${t.flights.length} flight${t.flights.length === 1 ? "" : "s"}`), h("span", null, ic("pin", 14), `${p.total} places`), t.viaShare ? h("span", null, ic("link", 14), "Shared") : null),
           h("div", { class: "bar" }, h("i", { style: { width: p.pct + "%" } })),
           h("div", { class: "muted" }, `${p.done} of ${p.total} visited \u00B7 ${p.pct}%`))),
       h("button", { class: "trip-del", type: "button", "aria-label": "Delete " + t.name,
@@ -87,6 +89,7 @@ function welcomeView() {
     h("header", { class: "hero" }, h("span", { class: "brand" }, "Trip Pilot"), h("h1", null, "Every journey, ", h("em", null, "beautifully"), " orchestrated."), h("p", null, "Drop in your travel PDFs and get a living day-by-day plan with maps, progress and morning alerts.")),
     h("section", { class: "glass card" }, h("span", { class: "eyebrow" }, "Begin"), h("h2", { style: { marginTop: "4px" } }, "Start a new trip"), drops, h("div", { style: { marginTop: "14px" } }, go_), status),
     h("h2", { class: "section-title" }, "Confirmed trips"), list,
+    h("h2", { class: "section-title" }, "Share and sync"), shareCard(),
     h("p", { class: "footnote" }, ic("check", 14), "Your files are read on this phone. Nothing is uploaded anywhere.")));
 }
 
@@ -141,8 +144,12 @@ function newTripView() {
    ROUTER
    ===================================================================== */
 function parseRoute() {
-  const parts = (location.hash.replace(/^#/, "") || "/").split("/").filter(Boolean);
+  const raw = location.hash.replace(/^#/, "") || "/";
+  const q = raw.indexOf("?");
+  const pathPart = q >= 0 ? raw.slice(0, q) : raw;
+  const parts = pathPart.split("/").filter(Boolean);
   if (!parts.length) return { name: "welcome", depth: 0, order: 0 };
+  if (parts[0] === "join") return { name: "join", depth: 1, order: 0, link: share.parseLink(q >= 0 ? raw.slice(q + 1) : "") };
   if (parts[0] === "new") return { name: "new", depth: 1, order: 0 };
   if (parts[0] === "trip" && parts[1]) {
     const id = parts[1], sec = parts[2] || "plan";
@@ -173,7 +180,7 @@ async function render(instant = false) {
   if (my !== token) return;
   let el;
   try {
-    el = ({ welcome: welcomeView, new: newTripView, plan: planView, hotels: hotelsView, flights: flightsView, place: placeView, settings: settingsView }[route.name])(route);
+    el = ({ welcome: welcomeView, new: newTripView, join: joinView, plan: planView, hotels: hotelsView, flights: flightsView, place: placeView, settings: settingsView }[route.name])(route);
   } catch (e) {
     console.error(e);
     el = h("div", { class: "page" }, h("div", { class: "glass card" }, h("h2", null, "Something went wrong"), h("p", { class: "muted" }, String((e && e.message) || e)), h("a", { class: "btn gold", href: "#/" }, "Back to start")));
@@ -184,7 +191,7 @@ async function render(instant = false) {
   app.innerHTML = "";
   app.appendChild(el);
   const trip = route.id ? store.getTrip(route.id) : null;
-  setBackground(trip ? store.coverUrl(store.coverKey(trip)) : "img/fuji.jpg");
+  setBackground(trip ? store.coverUrl(store.coverKey(trip)) : "img/sky.jpg");
   document.body.classList.toggle("home", route.name === "welcome");
   window.scrollTo(0, y);
   prev = route;
@@ -194,6 +201,9 @@ window.addEventListener("hashchange", () => render());
 window.addEventListener("trip-refresh", () => render(true));
 
 store.load();
+share.initSharing();
 render();
+share.pullIfViewer(true);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") share.pullIfViewer(); });
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
