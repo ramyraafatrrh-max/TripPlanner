@@ -1,0 +1,33 @@
+name: Daily trip alerts
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # checks every 15 minutes; each day's alert is sent once
+  workflow_dispatch:         # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: write            # needed to remember which alerts were already sent
+
+concurrency:
+  group: trip-alerts
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Send due notifications
+        run: node scripts/send-alerts.mjs
+      - name: Remember what was sent
+        run: |
+          if [ -n "$(git status --porcelain data/state)" ]; then
+            git config user.name "trip-pilot-bot"
+            git config user.email "trip-pilot-bot@users.noreply.github.com"
+            git add data/state
+            git commit -m "Update alert state [skip ci]"
+            git push
+          fi
