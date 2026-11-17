@@ -11,21 +11,19 @@ export function searchTermFor(stop) {
   t = t.split(/\s+and\s+|,/i)[0].trim();
   return t || stop.name;
 }
-
 export function stopLinks(stop) {
   const term = searchTermFor(stop);
   const q = encodeURIComponent(term);
   const mq = encodeURIComponent(stop.query || term);
   return [
     { id: "ta", label: "TripAdvisor", url: `https://www.tripadvisor.com/Search?q=${q}` },
-    { id: "gm", label: "Google Maps reviews", url: `https://www.google.com/maps/search/?api=1&query=${mq}` },
+    { id: "gm", label: "Google reviews", url: `https://www.google.com/maps/search/?api=1&query=${mq}` },
     { id: "wv", label: "Wikivoyage", url: `https://en.wikivoyage.org/w/index.php?search=${q}` },
     { id: "wp", label: "Wikipedia", url: `https://en.wikipedia.org/w/index.php?search=${q}` },
-    { id: "gs", label: "Opening hours (Google)", url: `https://www.google.com/search?q=${encodeURIComponent(term + " opening hours admission")}` },
+    { id: "gs", label: "Opening hours", url: `https://www.google.com/search?q=${encodeURIComponent(term + " opening hours admission")}` },
     { id: "yt", label: "YouTube", url: `https://www.youtube.com/results?search_query=${encodeURIComponent(term + " travel")}` }
   ];
 }
-
 async function wikiQuery(domain, term) {
   const key = domain + "|" + term.toLowerCase();
   const cache = settings().wiki;
@@ -37,28 +35,17 @@ async function wikiQuery(domain, term) {
   const json = await res.json();
   const pages = json.query && json.query.pages ? Object.values(json.query.pages) : [];
   let v = null;
-  if (pages.length) {
-    const p = pages[0];
-    v = { title: p.title, extract: (p.extract || "").trim(), image: p.thumbnail ? p.thumbnail.source : "", url: p.fullurl || "" };
-  }
+  if (pages.length) { const p = pages[0]; v = { title: p.title, extract: (p.extract || "").trim(), image: p.thumbnail ? p.thumbnail.source : "", url: p.fullurl || "" }; }
   cache[key] = { t: Date.now(), v };
   save();
   return v;
 }
-
-/* returns [{source, title, extract, image, url}] */
 export async function webInfo(term) {
   const out = [];
-  const jobs = [
-    { source: "Wikipedia", domain: "en.wikipedia.org" },
-    { source: "Wikivoyage", domain: "en.wikivoyage.org" }
-  ].map(async j => {
-    try {
-      const v = await wikiQuery(j.domain, term);
-      if (v && v.extract) out.push(Object.assign({ source: j.source }, v));
-    } catch (e) { out.push({ source: j.source, error: true }); }
-  });
-  await Promise.all(jobs);
+  await Promise.all([{ source: "Wikipedia", domain: "en.wikipedia.org" }, { source: "Wikivoyage", domain: "en.wikivoyage.org" }].map(async j => {
+    try { const v = await wikiQuery(j.domain, term); if (v && v.extract) out.push(Object.assign({ source: j.source }, v)); }
+    catch (e) { out.push({ source: j.source, error: true }); }
+  }));
   out.sort((a, b) => (a.source < b.source ? 1 : -1));
   return out;
 }

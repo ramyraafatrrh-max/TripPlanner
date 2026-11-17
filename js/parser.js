@@ -100,7 +100,7 @@ function parseTableItinerary(pages) {
   let cityState = "";
   for (const page of pages) {
     const lines = groupLines(page.items);
-    const regions = []; // {topY, endY, cols, city}
+    const regions = [];
     let open = null;
     for (const ln of lines) {
       const big = ln.h > 10 && ln.x < 60;
@@ -171,9 +171,7 @@ function parseGenericItinerary(pages, defaultYear) {
   return rows;
 }
 
-function yearFor(month, startMonth, startYear) {
-  return month < startMonth ? startYear + 1 : startYear;
-}
+function yearFor(month, startMonth, startYear) { return month < startMonth ? startYear + 1 : startYear; }
 
 export function parseItinerary(pages, opts = {}) {
   const detected = detectYears(pages);
@@ -202,8 +200,8 @@ function firstMatch(text, re) { const m = text.match(re); return m ? m[1].trim()
 export function parseHotel(text, filename, defaultYear) {
   const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
   const out = { name: "", address: "", checkIn: "", checkOut: "", confirmation: "", phone: "", notes: "", source: filename || "", city: "" };
-  const kw = /(hotel|inn\b|apartment|hostel|resort|suites?|villa|residence|ryokan|guest\s?house|lodg|hakone|stay\b)/i;
-  const noise = /(booking\.com|agoda|expedia|airbnb|trip\.com|confirm|reservation|itinerary|e-?ticket|thank|welcome|invoice|receipt|page\s+\d|www\.|https?:|@|^\d+$|check-?\s?(in|out)|address|phone|tel\b|guest|price|total|payment|cancel|policy|nights?|your booking)/i;
+  const kw = /(hotel|inn\b|apartment|hostel|resort|suites?|villa|residence|ryokan|guest\s?house|lodg|stay\b)/i;
+  const noise = /(booking\.com|agoda|expedia|airbnb|trip\.com|confirm|reservation|itinerary|e-?ticket|thank|welcome|invoice|receipt|page\s+\d|www\.|https?:|@|^\d+$|check-?\s?(in|out)|address|phone|\btel\b|guest|price|total|payment|cancel|policy|nights?|your booking)/i;
   const labelLine = /^[A-Za-z ]{2,24}:\s/;
   const cand = lines.filter(l => l.length >= 3 && l.length <= 70 && !noise.test(l) && !labelLine.test(l));
   out.name = (cand.slice(0, 12).find(l => kw.test(l)) || cand[0] || lines[0] || (filename || "").replace(/\.pdf$/i, "")).replace(/^[^A-Za-z0-9]+/, "");
@@ -227,7 +225,7 @@ export function parseHotel(text, filename, defaultYear) {
 }
 
 /* ---------- flights ---------- */
-const NOT_AIRPORT = new Set(["THE", "AND", "FOR", "PDF", "USD", "EUR", "EGP", "JPY", "HKD", "GMT", "UTC", "VAT", "TAX", "ONE", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "TUE", "WED", "THU", "FRI", "SAT", "SUN", "MON", "AIR", "NEW", "ADT", "INF", "CHD", "REF", "PNR", "ECO", "MIN", "MAX", "MRS", "MISS", "SEAT"]);
+const NOT_AIRPORT = new Set(["THE", "AND", "FOR", "PDF", "USD", "EUR", "EGP", "JPY", "HKD", "GMT", "UTC", "VAT", "TAX", "ONE", "SEP", "OCT", "NOV", "DEC", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "TUE", "WED", "THU", "FRI", "SAT", "SUN", "MON", "AIR", "NEW", "ADT", "INF", "CHD", "REF", "PNR", "ECO", "MIN", "MAX", "MRS", "SEAT"]);
 
 export function parseFlights(text, filename, defaultYear) {
   const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
@@ -254,7 +252,7 @@ export function parseFlights(text, filename, defaultYear) {
   const flights = [];
   hits.forEach((hit, k) => {
     const end = k + 1 < hits.length ? hits[k + 1].i : Math.min(lines.length, hit.i + 10);
-    let block = lines.slice(hit.i, Math.max(end, hit.i + 1)).join(" | ");
+    const block = lines.slice(hit.i, Math.max(end, hit.i + 1)).join(" | ");
     const times = block.match(/\b([01]?\d|2[0-3]):[0-5]\d\b/g) || [];
     let dates = parseDatesIn(block, defaultYear);
     if (!dates.length) dates = parseDatesIn(lines.slice(Math.max(0, hit.i - 3), hit.i + 1).join(" "), defaultYear);

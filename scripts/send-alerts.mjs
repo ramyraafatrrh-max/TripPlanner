@@ -8,7 +8,7 @@ const ALERT_DIR = "data/alerts";
 const STATE_FILE = "data/state/sent.json";
 const DRY = process.env.DRY_RUN === "1";
 const NOW = process.env.NOW_ISO ? Date.parse(process.env.NOW_ISO) : Date.now();
-const WINDOW_MS = 12 * 3600 * 1000; // still send if the schedule ran late, up to 12 hours
+const WINDOW_MS = 12 * 3600 * 1000;
 
 function tzOffsetMinutes(tz, utcMs) {
   const dtf = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -23,7 +23,6 @@ function zonedToUtc(dateISO, timeHM, tz) {
   const utc = guess - tzOffsetMinutes(tz, guess) * 60000;
   return guess - tzOffsetMinutes(tz, utc) * 60000;
 }
-
 async function publish(body) {
   if (DRY) { console.log("DRY RUN, would send:", JSON.stringify(body)); return; }
   const res = await fetch("https://ntfy.sh/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -37,7 +36,6 @@ if (!files.length) { console.log("No alert files yet. Open the app, go to Settin
 fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
 const sent = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, "utf8")) : {};
 let changed = false, sentCount = 0;
-
 for (const f of files) {
   let alert;
   try { alert = JSON.parse(fs.readFileSync(path.join(ALERT_DIR, f), "utf8")); } catch (e) { console.warn("Skipping unreadable file", f); continue; }
@@ -54,7 +52,6 @@ for (const f of files) {
     }
   }
 }
-// forget entries older than 90 days
 for (const k of Object.keys(sent)) if (NOW - Date.parse(sent[k]) > 90 * 86400000) { delete sent[k]; changed = true; }
 if (changed && !DRY) fs.writeFileSync(STATE_FILE, JSON.stringify(sent, null, 2) + "\n");
 console.log(`Done. ${sentCount} notification(s) sent.`);

@@ -1,9 +1,10 @@
 /* app.js - router, welcome page, new-trip flow */
 import { h, fmtShort, fmtLong, clip } from "./util.js";
 import * as store from "./store.js";
-import { extractPages, pagesToText, parseItinerary, parseHotel, parseFlights, detectYears, groupLines } from "./parser.js";
+import { extractPages, pagesToText, parseItinerary, parseHotel, parseFlights, groupLines } from "./parser.js";
 import { getPdfjs } from "./pdfloader.js";
-import { $, nav, navigate, shell, fly, toast, confirmSheet } from "./ui.js";
+import { $, go, shell, fly, toast, confirmSheet, setBackground } from "./ui.js";
+import { ic, ring } from "./icons.js";
 import { planView, placeView, hotelsView, flightsView, settingsView } from "./views-trip.js";
 
 const app = $("#app");
@@ -15,7 +16,7 @@ let draft = null;
 function dropZone(key, icon, title, hint, multiple, files, onChange) {
   const input = h("input", { type: "file", accept: "application/pdf,.pdf", multiple: !!multiple, "aria-label": title });
   const nameEl = h("small", null, hint);
-  const label = h("label", { class: "drop" }, input, h("span", { class: "ic" }, icon), h("span", null, h("b", null, title), nameEl));
+  const label = h("label", { class: "drop" }, input, h("span", { class: "badge" }, ic(icon, 22)), h("span", { class: "grow" }, h("b", null, title), nameEl));
   const set = list => {
     files[key] = multiple ? list : list.slice(0, 1);
     label.classList.toggle("has", files[key].length > 0);
@@ -31,12 +32,12 @@ function dropZone(key, icon, title, hint, multiple, files, onChange) {
 
 function welcomeView() {
   const files = { itin: [], hotels: [], flights: [] };
-  const go = h("button", { class: "btn sun block", type: "button", disabled: true }, "\u2708\uFE0F Process my documents");
-  const status = h("p", { class: "muted", "aria-live": "polite" });
-  const refresh = () => { go.disabled = files.itin.length === 0; };
+  const go_ = h("button", { class: "btn gold block", type: "button", disabled: true }, ic("plane", 18), "Process my documents");
+  const status = h("div", { class: "muted", style: { marginTop: "10px" }, "aria-live": "polite" });
+  const refresh = () => { go_.disabled = files.itin.length === 0; };
 
-  go.addEventListener("click", async () => {
-    go.disabled = true;
+  go_.addEventListener("click", async () => {
+    go_.disabled = true;
     status.innerHTML = "";
     status.appendChild(h("span", { class: "spinner" }));
     status.appendChild(document.createTextNode("Reading your documents\u2026"));
@@ -50,42 +51,43 @@ function welcomeView() {
       for (const f of files.hotels) { const d = await read(f); hotels.push(parseHotel(d.text, d.name, parsed.year)); }
       for (const f of files.flights) { const d = await read(f); flights.push(...parseFlights(d.text, d.name, parsed.year)); }
       draft = { itin, parsed, hotels, flights, name: suggestName(itin) };
-      navigate("#/new");
+      go("#/new");
     } catch (e) {
       console.error(e);
       status.innerHTML = "";
-      status.appendChild(h("div", { class: "warn" }, e.message || String(e)));
+      status.appendChild(h("div", { class: "warnbox" }, e.message || String(e)));
       refresh();
     }
   });
 
   const drops = h("div", { class: "drops" },
-    dropZone("itin", "\uD83D\uDCC4", "Travel itinerary (PDF)", "Required. Tap to choose or drop it here.", false, files, refresh),
-    dropZone("hotels", "\uD83C\uDFE8", "Hotel bookings (PDF)", "Optional. You can choose several.", true, files, refresh),
-    dropZone("flights", "\u2708\uFE0F", "Flight itinerary or tickets (PDF)", "Optional. You can choose several.", true, files, refresh));
+    dropZone("itin", "route", "Travel itinerary", "Required \u00B7 tap to choose a PDF", false, files, refresh),
+    dropZone("hotels", "hotel", "Hotel bookings", "Optional \u00B7 you can add more later", true, files, refresh),
+    dropZone("flights", "plane", "Flights and tickets", "Optional \u00B7 you can add more later", true, files, refresh));
 
   const trips = store.trips();
   const list = h("div");
-  if (!trips.length) list.appendChild(h("div", { class: "card empty" }, "No trips yet. Upload an itinerary above to create your first one."));
+  if (!trips.length) list.appendChild(h("div", { class: "glass card empty" }, ic("bag", 32), h("p", null, "No trips yet. Upload an itinerary above to create your first one.")));
   trips.slice().sort((a, b) => b.createdAt - a.createdAt).forEach(t => {
     const p = store.progress(t);
     const first = t.days[0]?.date, last = t.days[t.days.length - 1]?.date;
-    list.appendChild(h("div", { style: { position: "relative" } },
-      h("button", { class: "trip-card", type: "button", onclick: () => navigate(`#/trip/${t.id}/plan`), "aria-label": "Open " + t.name },
-        h("div", { class: "band" }),
-        h("div", { class: "body" }, h("h3", null, t.name),
-          h("div", { class: "muted" }, `${fmtShort(first)} \u2013 ${fmtShort(last)} \u00B7 ${t.days.length} days \u00B7 ${t.hotels.length} hotel(s) \u00B7 ${t.flights.length} flight(s)`),
+    list.appendChild(h("div", { class: "tripwrap" },
+      h("button", { class: "trip-card", type: "button", onclick: () => go(`#/trip/${t.id}/plan`), "aria-label": "Open " + t.name },
+        h("div", { class: "photo", style: { backgroundImage: `url("${store.coverUrl(store.coverKey(t))}")` } },
+          h("div", { class: "over" }, h("span", { class: "eyebrow" }, `${fmtShort(first)} \u2013 ${fmtShort(last)} \u00B7 ${t.days.length} days`), h("h3", null, t.name))),
+        h("div", { class: "foot" },
+          h("div", { class: "stat-line" }, h("span", null, ic("hotel", 14), `${t.hotels.length} hotel${t.hotels.length === 1 ? "" : "s"}`), h("span", null, ic("plane", 14), `${t.flights.length} flight${t.flights.length === 1 ? "" : "s"}`), h("span", null, ic("pin", 14), `${p.total} places`)),
           h("div", { class: "bar" }, h("i", { style: { width: p.pct + "%" } })),
-          h("div", { class: "muted" }, `${p.done} of ${p.total} places visited (${p.pct}%)`))),
-      h("button", { class: "iconbtn", type: "button", "aria-label": "Delete " + t.name, style: { position: "absolute", right: "10px", top: "10px", background: "rgba(0,0,0,.28)", width: "34px", height: "34px", fontSize: ".9rem" },
-        onclick: () => confirmSheet("Delete this trip?", "\"" + t.name + "\" and your progress will be removed from this device.", "Delete", () => { store.removeTrip(t.id); navigate("#/"); }) }, "\u2715")));
+          h("div", { class: "muted" }, `${p.done} of ${p.total} visited \u00B7 ${p.pct}%`))),
+      h("button", { class: "trip-del", type: "button", "aria-label": "Delete " + t.name,
+        onclick: () => confirmSheet("Delete this trip?", "\"" + t.name + "\" and your progress will be removed from this device.", "Delete", () => { store.removeTrip(t.id); go("#/", { replace: true }); }) }, ic("x", 16))));
   });
 
-  return h("div", { class: "page" },
-    h("div", { class: "hero" }, h("div", { class: "logo" }, "\uD83E\uDDF3"), h("h1", null, "Trip Pilot"), h("p", null, "Turn your travel PDFs into a living day-by-day plan with maps, progress and morning alerts.")),
-    h("div", { class: "card" }, h("h2", null, "Start a new trip"), drops, h("div", { style: { marginTop: "12px" } }, go), status),
-    h("h2", { class: "section-title" }, "\u2705 Confirmed trips"), list,
-    h("p", { class: "muted", style: { color: "#fff", textAlign: "center", marginTop: "24px" } }, "Your files are read on this phone. Nothing is uploaded anywhere."));
+  return h("div", { class: "screen" }, h("div", { class: "page" },
+    h("header", { class: "hero" }, h("span", { class: "brand" }, "Trip Pilot"), h("h1", null, "Every journey, ", h("em", null, "beautifully"), " orchestrated."), h("p", null, "Drop in your travel PDFs and get a living day-by-day plan with maps, progress and morning alerts.")),
+    h("section", { class: "glass card" }, h("span", { class: "eyebrow" }, "Begin"), h("h2", { style: { marginTop: "4px" } }, "Start a new trip"), drops, h("div", { style: { marginTop: "14px" } }, go_), status),
+    h("h2", { class: "section-title" }, "Confirmed trips"), list,
+    h("p", { class: "footnote" }, ic("check", 14), "Your files are read on this phone. Nothing is uploaded anywhere.")));
 }
 
 function suggestName(itin) {
@@ -99,42 +101,39 @@ function suggestName(itin) {
    NEW TRIP (after processing)
    ===================================================================== */
 function newTripView() {
-  if (!draft) { setTimeout(() => navigate("#/"), 0); return h("div"); }
+  if (!draft) { setTimeout(() => go("#/", { replace: true }), 0); return h("div"); }
   const name = h("input", { type: "text", value: draft.name, "aria-label": "Trip name" });
   const year = h("input", { type: "number", value: draft.parsed.year, min: 2000, max: 2100, "aria-label": "Start year" });
   const stats = h("div");
-
   const drawStats = () => {
     const p = draft.parsed;
     const dates = Array.from(new Set(p.stops.map(s => s.date))).sort();
     stats.innerHTML = "";
     stats.appendChild(h("div", { class: "meta-line" },
       h("span", { class: "pill green" }, dates.length + " days"), h("span", { class: "pill green" }, p.stops.length + " places"),
-      h("span", { class: "pill" + (draft.hotels.length ? " green" : " sun") }, draft.hotels.length + " hotel(s)"),
-      h("span", { class: "pill" + (draft.flights.length ? " green" : " sun") }, draft.flights.length + " flight(s)")));
-    stats.appendChild(h("p", null, `Trip dates: ${fmtLong(dates[0])} to ${fmtLong(dates[dates.length - 1])}`));
-    if (p.mode === "generic") stats.appendChild(h("div", { class: "warn" }, "This PDF is not in the table layout I know best, so I split it by date headings. Please check the days after creating the trip."));
-    if (!draft.hotels.length) stats.appendChild(h("div", { class: "warn" }, "No hotel bookings were added. You can add them later in the Hotels tab."));
-    if (!draft.flights.length) stats.appendChild(h("div", { class: "warn" }, "No flights were added. You can add them later in the Flights tab."));
+      h("span", { class: "pill " + (draft.hotels.length ? "green" : "warn") }, draft.hotels.length + " hotel(s)"), h("span", { class: "pill " + (draft.flights.length ? "green" : "warn") }, draft.flights.length + " flight(s)")));
+    stats.appendChild(h("p", { class: "muted" }, `Trip dates: ${fmtLong(dates[0])} to ${fmtLong(dates[dates.length - 1])}`));
+    if (p.mode === "generic") stats.appendChild(h("div", { class: "warnbox" }, "This PDF is not in the table layout I know best, so I split it by date headings. Please check the days after creating the trip."));
+    if (!draft.hotels.length) stats.appendChild(h("div", { class: "warnbox" }, "No hotel bookings yet. You can add them any time with the document button inside the trip."));
+    if (!draft.flights.length) stats.appendChild(h("div", { class: "warnbox" }, "No flights yet. You can add them any time with the document button inside the trip."));
     const ex = h("details", null, h("summary", null, "Preview of what I found"));
-    dates.slice(0, 4).forEach(d => ex.appendChild(h("p", { style: { margin: "6px 0" } }, h("b", null, fmtLong(d) + ": "), p.stops.filter(s => s.date === d).map(s => clip(s.name, 40)).join(" \u2192 "))));
+    dates.slice(0, 4).forEach(d => ex.appendChild(h("p", { class: "muted", style: { margin: "8px 0" } }, h("b", { style: { color: "var(--ink)" } }, fmtLong(d) + ": "), p.stops.filter(s => s.date === d).map(s => clip(s.name, 40)).join(" \u2192 "))));
     stats.appendChild(ex);
   };
   drawStats();
   year.addEventListener("change", () => { draft.parsed = parseItinerary(draft.itin.pages, { year: +year.value }); drawStats(); });
 
-  const create = h("button", { class: "btn sun block", type: "button" }, "\u2705 Create trip");
+  const create = h("button", { class: "btn gold block", type: "button" }, ic("check", 18, 2.4), "Create trip");
   create.addEventListener("click", () => {
     const trip = store.buildTrip({ name: name.value.trim() || "My trip", year: +year.value, stops: draft.parsed.stops, hotels: draft.hotels, flights: draft.flights, sources: [draft.itin.name] });
     store.addTrip(trip);
     draft = null;
-    toast("Trip created. Have a great journey!");
-    navigate(`#/trip/${trip.id}/plan`);
+    toast("Trip created. Bon voyage!");
+    go(`#/trip/${trip.id}/plan`, { replace: true });
   });
-
-  return shell({ title: "New trip", back: "#/", body: h("div", null,
-    h("div", { class: "card" }, h("h2", null, "\uD83C\uDF89 Your documents are ready"), stats),
-    h("div", { class: "card" }, h("h2", null, "Name this trip"), h("label", { class: "field" }, "Trip name"), name,
+  return shell({ eyebrow: "Step 2 of 2", title: "Your trip is ready", back: "#/", body: h("div", null,
+    h("div", { class: "glass card" }, h("h2", null, "Here is what I found"), stats),
+    h("div", { class: "glass card" }, h("span", { class: "eyebrow" }, "Finish"), h("h2", { style: { marginTop: "4px" } }, "Name this trip"), h("label", { class: "field" }, "Trip name"), name,
       h("label", { class: "field" }, "Year the trip starts"), year, h("p", { class: "muted" }, "Change the year if the dates look wrong."), h("div", { style: { marginTop: "14px" } }, create))) });
 }
 
@@ -155,7 +154,6 @@ function parseRoute() {
   }
   return { name: "welcome", depth: 0, order: 0 };
 }
-
 let prev = null, token = 0;
 function direction(a, b) {
   if (!a) return "up";
@@ -165,40 +163,37 @@ function direction(a, b) {
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function render() {
+async function render(instant = false) {
   const route = parseRoute();
   const my = ++token;
   const dir = direction(prev, route);
   const old = app.firstElementChild;
-  const skipFly = prev && prev.name === "plan" && route.name === "plan" && prev.id === route.id;
-  if (old && !skipFly) { fly(dir); old.classList.add("leave"); await sleep(170); }
+  const same = prev && prev.name === route.name && prev.id === route.id && (route.name === "plan" || instant);
+  if (old && !instant && !same) { fly(dir); old.classList.add("leave"); await sleep(170); }
   if (my !== token) return;
   let el;
   try {
     el = ({ welcome: welcomeView, new: newTripView, plan: planView, hotels: hotelsView, flights: flightsView, place: placeView, settings: settingsView }[route.name])(route);
   } catch (e) {
     console.error(e);
-    el = h("div", { class: "page" }, h("div", { class: "card" }, h("h2", null, "Something went wrong"), h("p", null, String(e && e.message || e)), h("a", { class: "btn", href: "#/" }, "Back to start")));
+    el = h("div", { class: "page" }, h("div", { class: "glass card" }, h("h2", null, "Something went wrong"), h("p", { class: "muted" }, String((e && e.message) || e)), h("a", { class: "btn gold", href: "#/" }, "Back to start")));
   }
-  el.classList.add("view", dir === "left" ? "enter-left" : dir === "up" ? "enter-up" : "enter-right");
+  if (!(instant || same)) el.classList.add("view", dir === "left" ? "enter-left" : dir === "up" ? "enter-up" : "enter-right");
+  else el.classList.add("view");
+  const y = same || instant ? window.scrollY : 0;
   app.innerHTML = "";
   app.appendChild(el);
-  document.body.classList.toggle("dim", route.name !== "welcome");
-  window.scrollTo(0, 0);
+  const trip = route.id ? store.getTrip(route.id) : null;
+  setBackground(trip ? store.coverUrl(store.coverKey(trip)) : "img/fuji.jpg");
+  document.body.classList.toggle("home", route.name === "welcome");
+  window.scrollTo(0, y);
   prev = route;
 }
 
-window.addEventListener("hashchange", () => {
-  const cur = location.hash || "#/";
-  if (nav.isBack) nav.isBack = false;
-  else if (nav.stack[nav.stack.length - 1] !== cur) nav.stack.push(cur);
-  render();
-});
+window.addEventListener("hashchange", () => render());
+window.addEventListener("trip-refresh", () => render(true));
 
 store.load();
-nav.stack.push(location.hash || "#/");
 render();
 
-if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
-}
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
