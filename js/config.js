@@ -1,10 +1,15 @@
-/* config.js - the one file you edit to choose where live progress is stored.
+/* config.js - the only place that decides which modules the app loads.
+   - Each name below is a folder in js/modules/<name>/index.js. Remove a name (or switch it off in the app under
+     Home > gear icon > Modules) and that feature disappears without touching any other file.
+   - To change one feature, replace just that module's files. Nothing else needs to be re-uploaded. */
+export default {
+  appName: "Trip Pilot",
+  // load order matters only for services: a module can use the services of modules listed before it
+  modules: ["maps", "places", "photos", "parsers", "intake", "welcome", "plan", "hotels", "flights", "alerts", "share", "live", "settings"],
 
-   Leave "endpoint" empty and the app tries free public stores (MantleDB first, then jsonstorage.net), each with a private random
-   item per trip and no account. They are third-party services, so they can change their rules or disappear.
+  // Live progress: your own free Cloudflare Worker is the dependable option (see worker/worker.js and the README).
+  live: { endpoint: "" },
 
-   For the most reliable setup, deploy worker/worker.js once on your own free Cloudflare account (steps in the README),
-   then paste its address here, for example "https://trip-sync.yourname.workers.dev". Your users still need no account. */
-export const SYNC = {
-  endpoint: ""
+  // Place search used to find coordinates when you add a place by name (OpenStreetMap services, no key needed).
+  geocoder: { nominatim: "https://nominatim.openstreetmap.org/search", photon: "https://photon.komoot.io/api/" }
 };

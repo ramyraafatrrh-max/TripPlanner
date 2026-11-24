@@ -1,17 +1,2 @@
-{
-  "name": "Trip Pilot",
-  "short_name": "Trip Pilot",
-  "description": "Turn your travel PDFs into a day-by-day plan with maps, progress and morning alerts.",
-  "start_url": "./",
-  "scope": "./",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#070b14",
-  "theme_color": "#070b14",
-  "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
-  ]
-}
+{ "name": "Trip Pilot", "short_name": "Trip Pilot", "description": "Plan, route and track any trip", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#0a0f1a", "theme_color": "#0a0f1a",
+  "icons": [ { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" }, { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" } ] }

@@ -1,57 +1,25 @@
-// Runs on a GitHub schedule. Reads data/alerts/*.json (saved by the app) and sends each day's
-// morning notification through ntfy.sh once the local alert time has passed.
-// Sent notifications are remembered in data/state/sent.json so nothing is sent twice.
+// Sends the morning alert of each trip day once the day's local time has reached the chosen alert time.
 import fs from "node:fs";
-import path from "node:path";
-
-const ALERT_DIR = "data/alerts";
-const STATE_FILE = "data/state/sent.json";
-const DRY = process.env.DRY_RUN === "1";
-const NOW = process.env.NOW_ISO ? Date.parse(process.env.NOW_ISO) : Date.now();
-const WINDOW_MS = 12 * 3600 * 1000;
-
-function tzOffsetMinutes(tz, utcMs) {
-  const dtf = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const o = {};
-  dtf.formatToParts(new Date(utcMs)).forEach(p => (o[p.type] = p.value));
-  return (Date.UTC(+o.year, +o.month - 1, +o.day, +o.hour, +o.minute, +o.second) - utcMs) / 60000;
+const DIR = "data/alerts", STATE = "data/state/sent.json";
+const sent = fs.existsSync(STATE) ? JSON.parse(fs.readFileSync(STATE, "utf8")) : {};
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const label = iso => { const d = new Date(iso + "T00:00:00Z"); return `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
+function local(tz) {
+  const o = {}; new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).forEach(p => { o[p.type] = p.value; });
+  return { date: `${o.year}-${o.month}-${o.day}`, hm: `${o.hour}:${o.minute}` };
 }
-function zonedToUtc(dateISO, timeHM, tz) {
-  const [y, m, d] = dateISO.split("-").map(Number);
-  const [hh, mm] = timeHM.split(":").map(Number);
-  const guess = Date.UTC(y, m - 1, d, hh, mm);
-  const utc = guess - tzOffsetMinutes(tz, guess) * 60000;
-  return guess - tzOffsetMinutes(tz, utc) * 60000;
-}
-async function publish(body) {
-  if (DRY) { console.log("DRY RUN, would send:", JSON.stringify(body)); return; }
-  const res = await fetch("https://ntfy.sh/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(`ntfy replied ${res.status}`);
-}
-
-if (!fs.existsSync(ALERT_DIR)) { console.log("No alerts folder yet. Nothing to do."); process.exit(0); }
-const files = fs.readdirSync(ALERT_DIR).filter(f => f.endsWith(".json"));
-if (!files.length) { console.log("No alert files yet. Open the app, go to Settings and tap 'Sync alerts to GitHub'."); process.exit(0); }
-
-fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
-const sent = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, "utf8")) : {};
-let changed = false, sentCount = 0;
-for (const f of files) {
-  let alert;
-  try { alert = JSON.parse(fs.readFileSync(path.join(ALERT_DIR, f), "utf8")); } catch (e) { console.warn("Skipping unreadable file", f); continue; }
-  for (const day of alert.days || []) {
-    const key = `${alert.tripId}|${day.date}|${alert.notifyTime}`;
-    const at = zonedToUtc(day.date, alert.notifyTime || "07:30", day.tz || "UTC");
-    if (NOW >= at && NOW < at + WINDOW_MS && !sent[key]) {
-      try {
-        await publish({ topic: alert.topic, title: day.title, message: day.message, click: day.click, tags: ["sunrise"] });
-        sent[key] = new Date(NOW).toISOString();
-        changed = true; sentCount++;
-        console.log("Sent:", alert.tripName, day.date);
-      } catch (e) { console.error("Could not send", key, e.message); }
-    }
+let count = 0;
+for (const file of fs.existsSync(DIR) ? fs.readdirSync(DIR).filter(f => f.endsWith(".json")) : []) {
+  let trip; try { trip = JSON.parse(fs.readFileSync(`${DIR}/${file}`, "utf8")); } catch (e) { console.log("skip", file); continue; }
+  for (const day of trip.days || []) {
+    let now; try { now = local(day.tz || "UTC"); } catch (e) { continue; }
+    const key = `${trip.id}:${day.date}`;
+    if (now.date !== day.date || now.hm < (trip.notifyTime || "07:30") || sent[key]) continue;
+    const res = await fetch(`https://ntfy.sh/${trip.topic}`, { method: "POST", body: trip.includeNames && day.title ? day.title : "Tap to open today's plan",
+      headers: { Title: `Day ${day.n}: ${label(day.date)}`, Click: `${trip.appUrl}#/trip/${trip.id}/plan/${day.date}`, Tags: "airplane" } });
+    if (res.ok) { sent[key] = Date.now(); count++; console.log("sent", key); } else console.log("failed", key, res.status);
   }
 }
-for (const k of Object.keys(sent)) if (NOW - Date.parse(sent[k]) > 90 * 86400000) { delete sent[k]; changed = true; }
-if (changed && !DRY) fs.writeFileSync(STATE_FILE, JSON.stringify(sent, null, 2) + "\n");
-console.log(`Done. ${sentCount} notification(s) sent.`);
+for (const k of Object.keys(sent)) if (Date.now() - sent[k] > 40 * 86400000) delete sent[k];
+fs.mkdirSync("data/state", { recursive: true }); fs.writeFileSync(STATE, JSON.stringify(sent, null, 1));
+console.log(`${count} alert(s) sent`);
